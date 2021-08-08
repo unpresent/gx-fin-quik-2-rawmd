@@ -4,11 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import ru.gxfin.quik.events.DbAdapterStartEvent;
 
 @SpringBootApplication
 public class Application {
-    public static void main(String[] args) throws JsonProcessingException {
+    public static void main(String[] args) {
         final var context = new SpringApplicationBuilder(Application.class)
                 .web(WebApplicationType.NONE)
                 .run(args);

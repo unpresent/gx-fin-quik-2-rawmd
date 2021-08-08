@@ -2,26 +2,32 @@ package ru.gxfin.quik.dbadapter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.Lifecycle;
 import org.springframework.context.event.EventListener;
-import ru.gxfin.quik.api.DbAdapterLifeController;
 import ru.gxfin.quik.events.DbAdapterStartEvent;
 import ru.gxfin.quik.events.DbAdapterStopEvent;
 
 @Slf4j
-public class DefaultDbAdapterLifeController implements DbAdapterLifeController {
+public class DbAdapterLifeController {
     @Autowired
-    private DefaultDbAdapter dbAdapter;
+    private DbAdapter dbAdapter;
 
+    /**
+     * Обработчик команды о запуске провайдера
+     * @param event команда о запуске провайдера
+     */
     @EventListener(DbAdapterStartEvent.class)
-    @Override
     public void onEvent(DbAdapterStartEvent event) {
         log.info("Starting onEvent(ProviderStartEvent event)");
         this.dbAdapter.start();
         log.info("Finished onEvent(ProviderStartEvent event)");
     }
 
+    /**
+     * Обработчик команды об остановке провайдера
+     * @param event команда об остановке провайдера
+     */
     @EventListener(DbAdapterStopEvent.class)
-    @Override
     public void onEvent(DbAdapterStopEvent event) {
         log.info("Starting onEvent(ProviderStopEvent event)");
         this.dbAdapter.stop();

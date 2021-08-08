@@ -17,6 +17,7 @@
 
         <gxfin-common-starter.version>1.0</gxfin-common-starter.version>
         <gxfin-common-jpa-starter.version>1.0</gxfin-common-jpa-starter.version>
+        <gxfin-common-kafka-starter.version>1.0</gxfin-common-kafka-starter.version>
         <gxfin-quik-gateway.version>1.0</gxfin-quik-gateway.version>
 
         <org.springframework.boot.version>2.5.0</org.springframework.boot.version>
@@ -57,6 +58,11 @@
             <groupId>ru.gxfin.common</groupId>
             <artifactId>gxfin-common-jpa-starter</artifactId>
             <version>${gxfin-common-jpa-starter.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ru.gxfin.common</groupId>
+            <artifactId>gxfin-common-kafka-starter</artifactId>
+            <version>${gxfin-common-kafka-starter.version}</version>
         </dependency>
         <dependency>
             <groupId>ru.gxfin.gate.quik</groupId>
@@ -123,6 +129,7 @@
                     </execution>
                 </executions>
             </plugin>
+
         </plugins>
     </build>
 

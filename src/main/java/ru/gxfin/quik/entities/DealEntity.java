@@ -1,73 +1,83 @@
-package ru.gxfin.quik.db;
+package ru.gxfin.quik.entities;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import ru.gxfin.common.data.AbstractIdentifiedDataObject;
+import lombok.experimental.Accessors;
+import ru.gxfin.common.data.AbstractEntityObject;
+import ru.gxfin.gate.quik.model.internal.QuikDealDirection;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 /**
  * Сделка
  */
 @Entity
+@IdClass(DealEntityId.class)
 @Table( schema = "Quik", name = "Deals")
 @Getter
 @Setter
-@EqualsAndHashCode
+@Accessors(chain = true)
+@EqualsAndHashCode(callSuper = true)
 @ToString
-public class DealEntity extends AbstractIdentifiedDataObject<Long> {
+public class DealEntity extends AbstractEntityObject {
+    /**
+     * Код биржи в торговой системе
+     */
+    @Id
+    @Column(name = "ExchangeCode", nullable = false)
+    private String exchangeCode;
+
     /**
      * Номер сделки в торговой системе
      */
+    @Id
     @Column(name = "TradeNum", length = 50, nullable = false)
     private String tradeNum;
 
     /**
      * Номер заявки в торговой системе
      */
-    @Column(name = "OrderNum", length = 50, nullable = true)
+    @Column(name = "OrderNum", length = 50)
     private String orderNum;
 
     /**
      * Комментарий, обычно: <код клиента>/<номер поручения>
      */
-    @Column(name = "BrokerRef", length = 50, nullable = true)
+    @Column(name = "BrokerRef", length = 50)
     private String brokerRef;
 
     /**
      * Идентификатор трейдера
      */
-    @Column(name = "UserId", length = 50, nullable = true)
+    @Column(name = "UserId", length = 50)
     private String userId;
 
     /**
      * Идентификатор фирмы
      */
-    @Column(name = "FirmId", length = 50, nullable = true)
+    @Column(name = "FirmId", length = 50)
     private String firmId;
 
     /**
      * Идентификатор пользователя, снявшего заявку
      */
-    @Column(name = "CanceledUid", nullable = true)
+    @Column(name = "CanceledUid")
     private long canceledUid;
 
     /**
      * Торговый счет
      */
-    @Column(name = "Account", length = 50, nullable = true)
+    @Column(name = "Account", length = 50)
     private String account;
 
     /**
      * Цена
      */
-    @Column(name = "Price", precision = 24, scale = 8, nullable = true)
+    @Column(name = "Price", precision = 24, scale = 8)
     private BigDecimal price;
 
     /**
@@ -85,181 +95,175 @@ public class DealEntity extends AbstractIdentifiedDataObject<Long> {
     /**
      * Накопленный купонный доход
      */
-    @Column(name = "AccruedInterest", precision = 24, scale = 8, nullable = true)
+    @Column(name = "AccruedInterest", precision = 24, scale = 8)
     private BigDecimal accruedInterest;
 
     /**
      * Доходность
      */
-    @Column(name = "Yield", precision = 24, scale = 8, nullable = true)
+    @Column(name = "Yield", precision = 24, scale = 8)
     private BigDecimal yield;
 
     /**
      * Код расчетов
      */
-    @Column(name = "SettleCode", length = 50, nullable = true)
+    @Column(name = "SettleCode", length = 50)
     private String settleCode;
 
     /**
      * Код фирмы партнера
      */
-    @Column(name = "CpFirmId", length = 50, nullable = true)
+    @Column(name = "CpFirmId", length = 50)
     private String cpFirmId;
 
     /**
-     * Набор битовых флагов
+     * Направление сделки
      */
-    @Column(name = "Flags", nullable = true)
-    private int flags;
+    @Column(name = "Direction")
+    private QuikDealDirection direction;
 
     /**
      * Цена выкупа
      */
-    @Column(name = "Price2", precision = 24, scale = 8, nullable = true)
+    @Column(name = "Price2", precision = 24, scale = 8)
     private BigDecimal price2;
 
     /**
      * Ставка РЕПО (%)
      */
-    @Column(name = "RepoRate", precision = 24, scale = 8, nullable = true)
+    @Column(name = "RepoRate", precision = 24, scale = 8)
     private BigDecimal repoRate;
 
     /**
      * Код клиента
      */
-    @Column(name = "ClientCode", length = 50, nullable = true)
+    @Column(name = "ClientCode", length = 50)
     private String clientCode;
 
     /**
      * Доход (%) на дату выкупа
      */
-    @Column(name = "Accrued2", precision = 24, scale = 8, nullable = true)
+    @Column(name = "Accrued2", precision = 24, scale = 8)
     private BigDecimal accrued2;
 
     /**
      * Срок РЕПО, в календарных днях
      */
-    @Column(name = "RepoTerm", nullable = true)
+    @Column(name = "RepoTerm")
     private int repoTerm;
 
     /**
      * Сумма РЕПО на текущую дату. Отображается с точностью 2 знака
      */
-    @Column(name = "RepoValue", precision = 24, scale = 8, nullable = true)
+    @Column(name = "RepoValue", precision = 24, scale = 8)
     private BigDecimal repoValue;
 
     /**
      * Объём сделки выкупа РЕПО. Отображается с точностью 2 знака
      */
-    @Column(name = "Repo2Value", precision = 24, scale = 8, nullable = true)
+    @Column(name = "Repo2Value", precision = 24, scale = 8)
     private BigDecimal repo2Value;
 
     /**
      * Начальный дисконт (%)
      */
-    @Column(name = "StartDiscount", precision = 24, scale = 8, nullable = true)
+    @Column(name = "StartDiscount", precision = 24, scale = 8)
     private BigDecimal startDiscount;
 
     /**
      * Нижний дисконт (%)
      */
-    @Column(name = "LowerDiscount", precision = 24, scale = 8, nullable = true)
+    @Column(name = "LowerDiscount", precision = 24, scale = 8)
     private BigDecimal lowerDiscount;
 
     /**
      * Верхний дисконт (%)
      */
-    @Column(name = "UpperDiscount", precision = 24, scale = 8, nullable = true)
+    @Column(name = "UpperDiscount", precision = 24, scale = 8)
     private BigDecimal upperDiscount;
 
     /**
      * Блокировка обеспечения («Да»/«Нет»)
      */
-    @Column(name = "BlockSecurities", precision = 24, scale = 8, nullable = true)
+    @Column(name = "BlockSecurities", precision = 24, scale = 8)
     private BigDecimal blockSecurities;
 
     /**
      * Клиринговая комиссия (ММВБ)
      */
-    @Column(name = "ClearingComissio", precision = 24, scale = 8, nullable = true)
+    @Column(name = "ClearingComission", precision = 24, scale = 8)
     private BigDecimal clearingComission;
 
     /**
      * Комиссия Фондовой биржи (ММВБ)
      */
-    @Column(name = "ExchangeComission", precision = 24, scale = 8, nullable = true)
+    @Column(name = "ExchangeComission", precision = 24, scale = 8)
     private BigDecimal exchangeComission;
 
     /**
      * Комиссия Технического центра (ММВБ)
      */
-    @Column(name = "TechCenterComission", precision = 24, scale = 8, nullable = true)
+    @Column(name = "TechCenterComission", precision = 24, scale = 8)
     private BigDecimal techCenterComission;
 
     /**
      * Дата расчетов
      */
-    @Column(name = "SettleDate", nullable = true)
+    @Column(name = "SettleDate")
     private int settleDate;
 
     /**
      * Валюта расчетов
      */
-    @Column(name = "SettleCurrency", length = 10, nullable = true)
+    @Column(name = "SettleCurrency", length = 10)
     private String settleCurrency;
 
     /**
      * Валюта
      */
-    @Column(name = "TradeCurrency", length = 10, nullable = true)
+    @Column(name = "TradeCurrency", length = 10)
     private String tradeCurrency;
-
-    /**
-     * Код биржи в торговой системе
-     */
-    @Column(name = "ExchangeCode", nullable = false)
-    private String exchangeCode;
 
     /**
      * Идентификатор рабочей станции
      */
-    @Column(name = "StationId", nullable = true)
+    @Column(name = "StationId")
     private long stationId;
 
     /**
      * Код бумаги заявки
      */
-    @Column(name = "SecCode", length = 50, nullable = true)
+    @Column(name = "SecCode", length = 50)
     private String secCode;
 
     /**
      * Код класса заявки
      */
-    @Column(name = "SlassCode", length = 50, nullable = true)
+    @Column(name = "ClassCode", length = 50)
     private String classCode;
 
     /**
      * Дата и время
      */
     @Column(name = "TradeDateTime", nullable = false)
-    private Date tradeDateTime;
+    private LocalDateTime tradeDateTime;
 
     /**
      * Идентификатор расчетного счета/кода в клиринговой организации
      */
-    @Column(name = "", nullable = true)
+    @Column(name = "BankAccountId")
     private String bankAccountId;
 
     /**
      * Комиссия брокера. Отображается с точностью до 2 двух знаков. Поле зарезервировано для будущего использования
      */
-    @Column(name = "BrokerComission", precision = 24, scale = 8, nullable = true)
+    @Column(name = "BrokerComission", precision = 24, scale = 8)
     private BigDecimal brokerComission;
 
     /**
      * Номер витринной сделки в Торговой Системе для сделок РЕПО с ЦК и SWAP
      */
-    @Column(name = "LinkedTrade", nullable = true)
+    @Column(name = "LinkedTrade")
     private long linkedTrade;
 
     /**
@@ -268,13 +272,13 @@ public class DealEntity extends AbstractIdentifiedDataObject<Long> {
      * «1» – Нормальный;
      * «2» – Закрытие
      */
-    @Column(name = "Period", nullable = true)
+    @Column(name = "Period")
     private short period;
 
     /**
      * Идентификатор транзакции
      */
-    @Column(name = "TransactionId", nullable = true)
+    @Column(name = "TransactionId")
     private long transactionId;
 
     /**
@@ -303,36 +307,36 @@ public class DealEntity extends AbstractIdentifiedDataObject<Long> {
      * «21» – Адресная сделка второй части РЕПО с корзиной;
      * «22» – Перенос позиций срочного рынка
      */
-    @Column(name = "Kind", nullable = true)
+    @Column(name = "Kind")
     private short kind;
 
     /**
      * Идентификатор счета в НКЦ (расчетный код)
      */
-    @Column(name = "ClearingBankAccountId", nullable = true)
+    @Column(name = "ClearingBankAccountId")
     private String clearingBankAccountId;
 
     /**
      * Дата и время снятия сделки
      */
-    @Column(name = "CanceledDateTime", nullable = true)
-    private Date canceledDateTime;
+    @Column(name = "CanceledDateTime")
+    private LocalDateTime canceledDateTime;
 
     /**
      * Идентификатор фирмы - участника клиринга
      */
-    @Column(name = "ClearingFirmId", nullable = true)
+    @Column(name = "ClearingFirmId")
     private String clearingFirmId;
 
     /**
      * Дополнительная информация по сделке, передаваемая торговой системой
      */
-    @Column(name = "SystemRef", nullable = true)
+    @Column(name = "SystemRef")
     private String systemRef;
 
     /**
      * Идентификатор пользователя
      */
-    @Column(name = "Uid", nullable = true)
+    @Column(name = "Uid")
     private long uid;
 }

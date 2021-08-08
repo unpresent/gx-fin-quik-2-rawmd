@@ -1,3 +1,6 @@
+service:
+  name: quik-2-rawmd
+
 # Логирование
 logging:
   level:
@@ -16,18 +19,20 @@ server:
 # provider
 db_adapter:
   wait_on_stop_ms: 1000
+  wait_on_restart_ms: 15000
   min_time_per_iteration_ms: 50
-  timeout_life_ms: 10000
+  timeout_life_ms: 30000
 
 #kafka
 kafka:
   server: localhost:9092
-  group:
-    id: quik-group
+  group_id: quik-2-rawmd
+  duration_on_poll_ms : 200
   income_topic:
     all_trades: quikProviderAllTrades
     deals: quikProviderDeals
     orders: quikProviderOrders
+    securities: quikProviderSecurities
 
 #data
 spring:
@@ -35,7 +40,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQL95Dialect
     show-sql: false
     hibernate:
-      ddl-auto: create
+      ddl-auto: validate # create, create-drop, update, validate
       naming:
         physical-strategy: ru.gxfin.common.data.naming.PhysicalNamingStrategyQuotedImpl
 
@@ -44,3 +49,5 @@ spring:
     username: quik
     password: 12033021
     driverClassName: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 2
