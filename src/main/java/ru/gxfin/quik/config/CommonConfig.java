@@ -7,21 +7,22 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.kafka.core.KafkaAdmin;
 import ru.gxfin.common.kafka.TopicMessageMode;
+import ru.gxfin.common.kafka.loader.LoadingMode;
 import ru.gxfin.common.kafka.loader.StandardIncomeTopicsLoader;
 import ru.gxfin.gate.quik.model.memdata.QuikAllTradesMemoryRepository;
 import ru.gxfin.gate.quik.model.memdata.QuikDealsMemoryRepository;
 import ru.gxfin.gate.quik.model.memdata.QuikOrdersMemoryRepository;
 import ru.gxfin.gate.quik.model.memdata.QuikSecuritiesMemoryRepository;
 import ru.gxfin.quik.config.helper.WorkIncomeTopicsConfiguration;
+import ru.gxfin.quik.converters.*;
 import ru.gxfin.quik.dbadapter.DbAdapter;
 import ru.gxfin.quik.dbadapter.DbAdapterLifeController;
 import ru.gxfin.quik.dbadapter.DbAdapterSettingsController;
@@ -29,17 +30,17 @@ import ru.gxfin.quik.events.LoadedAllTradesEvent;
 import ru.gxfin.quik.events.LoadedDealsEvent;
 import ru.gxfin.quik.events.LoadedOrdersEvent;
 import ru.gxfin.quik.events.LoadedSecuritiesEvent;
-import ru.gxfin.quik.services.AllTradesTransformer;
-import ru.gxfin.quik.services.DealsTransformer;
-import ru.gxfin.quik.services.OrdersTransformer;
-import ru.gxfin.quik.services.SeciritiesTransformer;
+import ru.gxfin.quik.loading.QuikAllTradesLoadingDescriptor;
+import ru.gxfin.quik.loading.QuikDealsLoadingDescriptor;
+import ru.gxfin.quik.loading.QuikOrdersLoadingDescriptor;
+import ru.gxfin.quik.loading.QuikSecuritiesLoadingDescriptor;
 
-import javax.persistence.EntityManagerFactory;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
 
 @EnableJpaRepositories("ru.gxfin.quik.repositories")
-public class CommonConfig {
+public abstract class CommonConfig {
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Common">
     @Value("${service.name}")
@@ -49,15 +50,6 @@ public class CommonConfig {
     public ObjectMapper objectMapper() {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule());
-    }
-
-    // @Bean
-    // @Autowired
-    public SessionFactory sessionFactory(EntityManagerFactory entityManagerFactory) {
-        if (entityManagerFactory.unwrap(SessionFactory.class) == null) {
-            throw new NullPointerException("entityManagerFactory is not a hibernate factory!");
-        }
-        return entityManagerFactory.unwrap(SessionFactory.class);
     }
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
@@ -81,25 +73,25 @@ public class CommonConfig {
 
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
-    // <editor-fold desc="Transformers">
+    // <editor-fold desc="Converters">
     @Bean
-    public AllTradesTransformer allTradesTransformer() {
-        return new AllTradesTransformer();
+    public AllTradeEntityFromDtoConverter allTradesEntityFromDtoConverter() {
+        return new AllTradeEntityFromDtoConverter();
     }
 
     @Bean
-    public DealsTransformer dealsTransformer() {
-        return new DealsTransformer();
+    public DealEntityFromDtoConverter dealsEntityFromDtoConverter() {
+        return new DealEntityFromDtoConverter();
     }
 
     @Bean
-    public OrdersTransformer ordersTransformer() {
-        return new OrdersTransformer();
+    public OrderEntityFromDtoConverter ordersEntityFromDtoConverter() {
+        return new OrderEntityFromDtoConverter();
     }
 
     @Bean
-    public SeciritiesTransformer seciritiesTransformer() {
-        return new SeciritiesTransformer();
+    public SecurityEntityFromDtoConverter securitiesEntityFromDtoConverter() {
+        return new SecurityEntityFromDtoConverter();
     }
 
     // </editor-fold>
@@ -190,29 +182,45 @@ public class CommonConfig {
 
     @Bean
     @Autowired
-    public StandardIncomeTopicsLoader incomeTopicsLoader(ApplicationContext context) {
-        return new StandardIncomeTopicsLoader(context);
+    public StandardIncomeTopicsLoader incomeTopicsLoader(ApplicationContext context, ObjectMapper objectMapper) {
+        return new StandardIncomeTopicsLoader(context, objectMapper);
     }
 
     @Bean
     @Autowired
     public WorkIncomeTopicsConfiguration workIncomeTopicsConfiguration(
-            ApplicationContext context,
-            DbAdapterSettingsController settings,
-
-            QuikAllTradesMemoryRepository quikAllTradesMemoryRepository,
-            QuikDealsMemoryRepository quikDealsMemoryRepository,
-            QuikOrdersMemoryRepository quikOrdersMemoryRepository,
-            QuikSecuritiesMemoryRepository quikSecuritiesMemoryRepository
+            DbAdapterSettingsController settings
     ) {
-        final var props = consumerProperties();
-        final var result = new WorkIncomeTopicsConfiguration(context)
-                .register(0, settings.getIncomeTopicSecurities(), quikSecuritiesMemoryRepository, TopicMessageMode.PACKAGE, LoadedSecuritiesEvent.class, props, 0)
-                .register(1, settings.getIncomeTopicOrders(), quikOrdersMemoryRepository, TopicMessageMode.PACKAGE, LoadedOrdersEvent.class, props, 0)
-                .register(2, settings.getIncomeTopicDeals(), quikDealsMemoryRepository, TopicMessageMode.PACKAGE, LoadedDealsEvent.class, props, 0)
-                .register(3, settings.getIncomeTopicAlltrades(), quikAllTradesMemoryRepository, TopicMessageMode.PACKAGE, LoadedAllTradesEvent.class, props, 0);
+        final var result = new WorkIncomeTopicsConfiguration();
+        result.getDescriptorsDefaults()
+                .setTopicMessageMode(TopicMessageMode.PACKAGE)
+                .setLoadingMode(LoadingMode.Auto)
+                .setConsumerProperties(consumerProperties())
+                .setPartitions(0);
 
-        return (WorkIncomeTopicsConfiguration) result;
+        result
+                .register(
+                        new QuikSecuritiesLoadingDescriptor(result, settings.getIncomeTopicSecurities())
+                                .setPriority(0)
+                                .setOnLoadedEventClass(LoadedSecuritiesEvent.class)
+                )
+                .register(
+                        new QuikOrdersLoadingDescriptor(result, settings.getIncomeTopicOrders())
+                                .setPriority(1)
+                                .setOnLoadedEventClass(LoadedOrdersEvent.class)
+                )
+                .register(
+                        new QuikDealsLoadingDescriptor(result, settings.getIncomeTopicDeals())
+                                .setPriority(2)
+                                .setOnLoadedEventClass(LoadedDealsEvent.class)
+                )
+                .register(
+                        new QuikAllTradesLoadingDescriptor(result, settings.getIncomeTopicAlltrades())
+                                .setPriority(3)
+                                .setOnLoadedEventClass(LoadedAllTradesEvent.class)
+                );
+
+        return result;
     }
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------

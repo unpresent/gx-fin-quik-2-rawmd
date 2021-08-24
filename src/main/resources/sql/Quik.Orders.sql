@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "Quik"."Orders"
     "Account"           character varying(50) COLLATE pg_catalog."default"          NULL,
     "AccountType"       integer                                                     NULL,
     "AccruedInterest"   numeric(24,8)                                               NULL,
-    "ActivationTime"    timestamp without time zone                                 NULL,
+    "ActivationTime"    bigint                                                      NULL,
     "Balance"           numeric(24,8)                                           NOT NULL,
     "BankAccountId"     character varying(50) COLLATE pg_catalog."default"          NULL,
     "BrokerRef"         character varying(50) COLLATE pg_catalog."default"          NULL,

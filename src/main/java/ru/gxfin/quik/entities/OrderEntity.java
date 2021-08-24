@@ -144,7 +144,7 @@ public class OrderEntity extends AbstractEntityObject {
      * Время активации
      */
     @Column(name = "ActivationTime")
-    private LocalDateTime activationTime;
+    private Long activationTime;
 
     /**
      * Номер заявки в торговой системе

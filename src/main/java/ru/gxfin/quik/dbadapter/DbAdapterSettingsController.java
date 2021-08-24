@@ -1,6 +1,7 @@
 package ru.gxfin.quik.dbadapter;
 
 import org.springframework.context.ApplicationContext;
+import org.springframework.stereotype.Component;
 import ru.gxfin.common.settings.AbstractSettingsController;
 import ru.gxfin.common.settings.UnknownApplicationSettingException;
 

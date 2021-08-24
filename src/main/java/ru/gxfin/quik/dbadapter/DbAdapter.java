@@ -4,20 +4,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
-import ru.gxfin.common.data.ObjectCreateException;
 import ru.gxfin.common.kafka.loader.IncomeTopicsLoader;
+import ru.gxfin.common.kafka.loader.PartitionOffset;
 import ru.gxfin.common.worker.AbstractIterationExecuteEvent;
 import ru.gxfin.common.worker.AbstractStartingExecuteEvent;
 import ru.gxfin.common.worker.AbstractStoppingExecuteEvent;
 import ru.gxfin.common.worker.AbstractWorker;
 import ru.gxfin.quik.config.helper.WorkIncomeTopicsConfiguration;
+import ru.gxfin.quik.converters.AllTradeEntityFromDtoConverter;
+import ru.gxfin.quik.converters.DealEntityFromDtoConverter;
+import ru.gxfin.quik.converters.OrderEntityFromDtoConverter;
+import ru.gxfin.quik.converters.SecurityEntityFromDtoConverter;
 import ru.gxfin.quik.entities.*;
 import ru.gxfin.quik.events.*;
 import ru.gxfin.quik.repositories.*;
-import ru.gxfin.quik.services.AllTradesTransformer;
-import ru.gxfin.quik.services.DealsTransformer;
-import ru.gxfin.quik.services.OrdersTransformer;
-import ru.gxfin.quik.services.SeciritiesTransformer;
 
 import javax.persistence.EntityManagerFactory;
 import java.util.ArrayList;
@@ -36,16 +36,16 @@ public class DbAdapter extends AbstractWorker {
     private IncomeTopicsLoader incomeTopicsLoader;
 
     @Autowired
-    private AllTradesTransformer allTradesTransformer;
+    private AllTradeEntityFromDtoConverter allTradesEntityFromDtoConverter;
 
     @Autowired
-    private DealsTransformer dealsTransformer;
+    private DealEntityFromDtoConverter dealsEntityFromDtoConverter;
 
     @Autowired
-    private OrdersTransformer ordersTransformer;
+    private OrderEntityFromDtoConverter ordersEntityFromDtoConverter;
 
     @Autowired
-    private SeciritiesTransformer seciritiesTransformer;
+    private SecurityEntityFromDtoConverter securitiesEntityFromDtoConverter;
 
     @Autowired
     private AllTradesRepository allTradesRepository;
@@ -125,6 +125,7 @@ public class DbAdapter extends AbstractWorker {
      *
      * @param event Объект-событие с параметрами.
      */
+    @SuppressWarnings("unused")
     @EventListener(DbAdapterStartingExecuteEvent.class)
     public void startingExecute(DbAdapterStartingExecuteEvent event) {
         log.debug("Starting startingExecute()");
@@ -136,8 +137,23 @@ public class DbAdapter extends AbstractWorker {
         }
         final var offsets = this.kafkaOffsetsRepository.findAll();
 
+        var partitionsOffset = new ArrayList<PartitionOffset>();
+        for (var topicDescriptor : this.workIncomeTopicsConfiguration.getAll()) {
+            partitionsOffset.clear();
+            offsets.forEach(o -> {
+                if (o.getTopic() != null && o.getTopic().equals(topicDescriptor.getTopic())) {
+                    partitionsOffset.add(new PartitionOffset(o.getPartition(), o.getOffset()));
+                }
+            });
+            if (partitionsOffset.size() <= 0) {
+                this.workIncomeTopicsConfiguration.seekTopicAllPartitionsToBegin(topicDescriptor.getTopic());
+            } else {
+                this.workIncomeTopicsConfiguration.seekTopic(topicDescriptor.getTopic(), partitionsOffset);
+            }
+        }
+        // workIncomeTopicsConfiguration.seekTopic();...
+        // this.workIncomeTopicsConfiguration.seekAllToBegin();
 
-        this.workIncomeTopicsConfiguration.seekAllToBegin();
         log.debug("Finished startingExecute()");
     }
 
@@ -146,6 +162,7 @@ public class DbAdapter extends AbstractWorker {
      *
      * @param event Объект-событие с параметрами.
      */
+    @SuppressWarnings("unused")
     @EventListener(DbAdapterStoppingExecuteEvent.class)
     public void stoppingExecute(DbAdapterStoppingExecuteEvent event) {
         log.debug("Starting stoppingExecute()");
@@ -169,7 +186,7 @@ public class DbAdapter extends AbstractWorker {
                 final var tran = session.beginTransaction();
                 try {
                     final var durationOnPoll = this.settings.getDurationOnPollMs();
-                    this.incomeTopicsLoader.loadTopicsByConfiguration(this.workIncomeTopicsConfiguration, durationOnPoll);
+                    this.incomeTopicsLoader.processTopicsByConfiguration(this.workIncomeTopicsConfiguration, durationOnPoll);
 
                     saveKafkaOffsets();
 
@@ -193,8 +210,7 @@ public class DbAdapter extends AbstractWorker {
      * @param e     Ошибка, которую требуется обработать.
      */
     private void internalTreatmentExceptionOnDataRead(DbAdapterIterationExecuteEvent event, Exception e) {
-        log.error(e.getMessage());
-        log.error(e.getStackTrace().toString());
+        log.error("", e);
         if (e instanceof InterruptedException) {
             log.info("event.setStopExecution(true)");
             event.setStopExecution(true);
@@ -240,13 +256,13 @@ public class DbAdapter extends AbstractWorker {
      * @param event Объект-событие с параметрами.
      */
     @EventListener(LoadedSecuritiesEvent.class)
-    public void loadedSecurities(LoadedSecuritiesEvent event) throws ObjectCreateException {
+    public void loadedSecurities(LoadedSecuritiesEvent event) {
         log.debug("Starting loadedSecurities()");
         try {
             runnerIsLifeSet();
 
             final var securityEntitiesPackage = new SecurityEntitiesPackage();
-            this.seciritiesTransformer.setEntitiesPackageFromDtoPackage(securityEntitiesPackage, event.getObjects());
+            this.securitiesEntityFromDtoConverter.fillEntitiesPackageFromDtoPackage(securityEntitiesPackage, event.getObjects());
             final var started = System.currentTimeMillis();
             this.securitiesRepository.saveAll(securityEntitiesPackage.getObjects());
             log.info("Securities: saved {} rows in {} ms", securityEntitiesPackage.size(), System.currentTimeMillis() - started);
@@ -261,13 +277,13 @@ public class DbAdapter extends AbstractWorker {
      * @param event Объект-событие с параметрами.
      */
     @EventListener(LoadedDealsEvent.class)
-    public void loadedDeals(LoadedDealsEvent event) throws ObjectCreateException {
+    public void loadedDeals(LoadedDealsEvent event) {
         log.debug("Starting loadedDeals()");
         try {
             runnerIsLifeSet();
 
             final var dealEntitiesPackage = new DealEntitiesPackage();
-            this.dealsTransformer.setEntitiesPackageFromDtoPackage(dealEntitiesPackage, event.getObjects());
+            this.dealsEntityFromDtoConverter.fillEntitiesPackageFromDtoPackage(dealEntitiesPackage, event.getObjects());
             final var started = System.currentTimeMillis();
             this.dealsRepository.saveAll(dealEntitiesPackage.getObjects());
             log.info("Deals: saved {} rows in {} ms", dealEntitiesPackage.size(), System.currentTimeMillis() - started);
@@ -282,13 +298,14 @@ public class DbAdapter extends AbstractWorker {
      * @param event Объект-событие с параметрами.
      */
     @EventListener(LoadedOrdersEvent.class)
-    public void loadedOrders(LoadedOrdersEvent event) throws ObjectCreateException {
+    public void loadedOrders(LoadedOrdersEvent event) {
         log.debug("Starting loadedOrders()");
         try {
             runnerIsLifeSet();
 
             final var orderEntitiesPackage = new OrderEntitiesPackage();
-            this.ordersTransformer.setEntitiesPackageFromDtoPackage(orderEntitiesPackage, event.getObjects());
+            this.ordersEntityFromDtoConverter.fillEntitiesPackageFromDtoPackage(orderEntitiesPackage, event.getObjects());
+
             final var started = System.currentTimeMillis();
             this.ordersRepository.saveAll(orderEntitiesPackage.getObjects());
             log.info("Orders: saved {} rows in {} ms", orderEntitiesPackage.size(), System.currentTimeMillis() - started);
@@ -303,13 +320,13 @@ public class DbAdapter extends AbstractWorker {
      * @param event Объект-событие с параметрами.
      */
     @EventListener(LoadedAllTradesEvent.class)
-    public void loadedAllTrades(LoadedAllTradesEvent event) throws ObjectCreateException {
+    public void loadedAllTrades(LoadedAllTradesEvent event) {
         log.debug("Starting loadedAllTrades()");
         try {
             runnerIsLifeSet();
 
             final var allTradesEntitiesPackage = new AllTradeEntitiesPackage();
-            this.allTradesTransformer.setEntitiesPackageFromDtoPackage(allTradesEntitiesPackage, event.getObjects());
+            this.allTradesEntityFromDtoConverter.fillEntitiesPackageFromDtoPackage(allTradesEntitiesPackage, event.getObjects());
             final var started = System.currentTimeMillis();
             this.allTradesRepository.saveAll(allTradesEntitiesPackage.getObjects());
             log.info("AllTrades: saved {} rows in {} ms", allTradesEntitiesPackage.size(), System.currentTimeMillis() - started);
