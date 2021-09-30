@@ -1,6 +1,14 @@
 service:
   name: quik-2-rawmd
 
+# quik-2-rawmd
+quik-2-rawmd:
+  wait_on_stop_ms: 1000
+  wait_on_restarts_ms: 20000
+  min_time_per_iteration_ms: 50
+  timeout_runner_life_ms: 30000
+
+
 # Логирование
 logging:
   level:
@@ -15,13 +23,6 @@ logging:
 # Настройки Сервера
 server:
   port: 7002
-
-# provider
-db_adapter:
-  wait_on_stop_ms: 1000
-  wait_on_restart_ms: 15000
-  min_time_per_iteration_ms: 50
-  timeout_life_ms: 30000
 
 #kafka
 kafka:
@@ -42,12 +43,12 @@ spring:
     hibernate:
       ddl-auto: validate # create, create-drop, update, validate
       naming:
-        physical-strategy: ru.gxfin.common.data.naming.PhysicalNamingStrategyQuotedImpl
+        physical-strategy: ru.gx.data.jpa.naming.PhysicalNamingStrategyQuotedImpl
 
   datasource:
     url: jdbc:postgresql://localhost:5432/gxfin_rawmd
     username: quik
     password: 12033021
-    driverClassName: org.postgresql.Driver
+    # driverClassName: org.postgresql.Driver
     hikari:
       maximum-pool-size: 2
