@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS "Quik"."Orders"
     "Capacity"          numeric(24,8)                                               NULL,
     "ClassCode"         character varying(50) COLLATE pg_catalog."default"          NULL,
     "ClientCode"        character varying(50) COLLATE pg_catalog."default"          NULL,
-    "Direction"         integer                                                     NULL,
+    "Direction"         character varying(50) COLLATE pg_catalog."default"          NULL,
     "ExecType"          integer                                                     NULL,
     "Expiry"            bigint                                                      NULL,
     "ExtOrderFlags"     integer                                                     NULL,

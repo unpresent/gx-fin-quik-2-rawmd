@@ -3,7 +3,7 @@ package ru.gx.fin.quik;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import ru.gx.fin.quik.events.DbAdapterStartEvent;
+import ru.gx.worker.SimpleDoStartWorkerEvent;
 
 @SpringBootApplication
 public class Application {
@@ -11,6 +11,6 @@ public class Application {
         final var context = new SpringApplicationBuilder(Application.class)
                 .web(WebApplicationType.NONE)
                 .run(args);
-        context.publishEvent(new DbAdapterStartEvent("Application"));
+        SimpleDoStartWorkerEvent.publish(context, context);
     }
 }

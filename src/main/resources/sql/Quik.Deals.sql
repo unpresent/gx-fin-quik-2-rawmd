@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS "Quik"."Deals"
     "Yield"                 numeric(24,8),
     "SettleCode"            character varying(50) COLLATE pg_catalog."default"          NULL,
     "CpFirmId"              character varying(50) COLLATE pg_catalog."default"          NULL,
-    "Direction"             integer                                                     NULL,
+    "Direction"             character varying(10) COLLATE pg_catalog."default"          NULL,
     "Price2"                numeric(24,8)                                               NULL,
     "RepoRate"              numeric(24,8)                                               NULL,
     "ClientCode"            character varying(50) COLLATE pg_catalog."default"          NULL,

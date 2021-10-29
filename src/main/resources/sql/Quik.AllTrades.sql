@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS "Quik"."AllTrades"
 (
     "ExchangeCode"      character varying(50) COLLATE pg_catalog."default"  NOT NULL,
     "TradeNum"          character varying(50) COLLATE pg_catalog."default"  NOT NULL,
-    "Direction"         integer                                                 NULL,
+    "Direction"         character varying(10)                                   NULL,
     "TradeDateTime"     timestamp without time zone                         NOT NULL,
     "ClassCode"         character varying(50) COLLATE pg_catalog."default"      NULL,
     "SecCode"           character varying(50) COLLATE pg_catalog."default"      NULL,

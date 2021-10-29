@@ -1,13 +1,21 @@
 service:
   name: quik-2-rawmd
+  simple-worker.enabled: true
+  active-connections-container.enabled: true
+  income-topics:
+    configurator-caller.enabled: true
+    simple-configuration.enabled: true
+    standard-loader.enabled: true
+    standard-offsets-controller.enabled: true
+    jdbc-saver.enabled: true
+    jdbc-loader.enabled: true
 
 # quik-2-rawmd
 quik-2-rawmd:
-  wait_on_stop_ms: 1000
-  wait_on_restarts_ms: 20000
-  min_time_per_iteration_ms: 50
+  wait_on_stop_ms: 3000
+  wait_on_restart_ms: 20000
+  min_time_per_iteration_ms: 1000
   timeout_runner_life_ms: 30000
-
 
 # Логирование
 logging:
@@ -28,7 +36,7 @@ server:
 kafka:
   server: localhost:9092
   group_id: quik-2-rawmd
-  duration_on_poll_ms : 200
+  duration_on_poll_ms : 50
   income_topic:
     all_trades: quikProviderAllTrades
     deals: quikProviderDeals
@@ -37,13 +45,13 @@ kafka:
 
 #data
 spring:
-  jpa:
-    database-platform: org.hibernate.dialect.PostgreSQL95Dialect
-    show-sql: false
-    hibernate:
-      ddl-auto: validate # create, create-drop, update, validate
-      naming:
-        physical-strategy: ru.gx.data.jpa.naming.PhysicalNamingStrategyQuotedImpl
+  # jpa:
+    # database-platform: org.hibernate.dialect.PostgreSQL95Dialect
+    # show-sql: false
+    # hibernate:
+      # ddl-auto: validate # create, create-drop, update, validate
+      # naming:
+        # physical-strategy: ru.gx.data.jpa.naming.PhysicalNamingStrategyQuotedImpl
 
   datasource:
     url: jdbc:postgresql://localhost:5432/gxfin_rawmd
