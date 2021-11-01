@@ -18,6 +18,7 @@ import ru.gx.fin.quik.events.LoadedAllTradesEvent;
 import ru.gx.fin.quik.events.LoadedDealsEvent;
 import ru.gx.fin.quik.events.LoadedOrdersEvent;
 import ru.gx.fin.quik.events.LoadedSecuritiesEvent;
+import ru.gx.kafka.SerializeMode;
 import ru.gx.kafka.TopicMessageMode;
 import ru.gx.kafka.load.IncomeTopicsConfiguration;
 import ru.gx.kafka.load.IncomeTopicsConfigurator;
@@ -55,6 +56,7 @@ public abstract class CommonConfig implements IncomeTopicsConfigurator {
     public DbAdapter dbAdapter() {
         return new DbAdapter();
     }
+
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Events">
@@ -101,22 +103,24 @@ public abstract class CommonConfig implements IncomeTopicsConfigurator {
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Kafka Consumers">
-    public void putConsumerProperties(Properties properties) {
-        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServer);
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, kafkaGroupId);
-        properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, LongDeserializer.class);
-        properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+    public Properties consumerProperties() {
+        final var result = new Properties();
+        result.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServer);
+        result.put(ConsumerConfig.GROUP_ID_CONFIG, kafkaGroupId);
+        result.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, LongDeserializer.class);
+        result.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        result.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        return result;
     }
 
     @Override
     public void configureIncomeTopics(@NotNull IncomeTopicsConfiguration incomeTopicsConfiguration) {
-        final var defaults = incomeTopicsConfiguration
-                .getDescriptorsDefaults()
-                .setTopicMessageMode(TopicMessageMode.PACKAGE)
+        incomeTopicsConfiguration.getDescriptorsDefaults()
+                .setSerializeMode(SerializeMode.String)
+                .setTopicMessageMode(TopicMessageMode.Package)
                 .setLoadingMode(LoadingMode.Auto)
-                .setPartitions(0);
-        putConsumerProperties(defaults.getConsumerProperties());
+                .setPartitions(0)
+                .setConsumerProperties(consumerProperties());
 
         incomeTopicsConfiguration
                 .newDescriptor(this.settings.getIncomeTopicSecurities(), RawDataIncomeTopicLoadingDescriptor.class)

@@ -128,6 +128,7 @@ public class DbAdapter {
         } finally {
             this.connectionsContainer.putCurrent(null);
         }
+
         log.debug("Finished startingExecute()");
     }
 
