@@ -18,6 +18,8 @@ import ru.gx.kafka.TopicDirection;
 import ru.gx.kafka.load.*;
 import ru.gx.kafka.offsets.TopicsOffsetsLoader;
 import ru.gx.kafka.offsets.TopicsOffsetsSaver;
+import ru.gx.std.offsets.JdbcTopicsOffsetsLoader;
+import ru.gx.std.offsets.JdbcTopicsOffsetsSaver;
 import ru.gx.worker.SimpleOnIterationExecuteEvent;
 import ru.gx.worker.SimpleOnStartingExecuteEvent;
 import ru.gx.worker.SimpleOnStoppingExecuteEvent;
@@ -159,9 +161,8 @@ public class DbAdapter {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
                 try {
-                    final var durationOnPoll = this.settings.getDurationOnPollMs();
                     // Загружаем данные и сохраняем в БД
-                    final var result = this.incomeTopicsLoader.processAllTopics(this.incomeTopicsConfiguration, durationOnPoll);
+                    final var result = this.incomeTopicsLoader.processAllTopics(this.incomeTopicsConfiguration);
                     for (var c: result.values()) {
                         if (c.size() > 1) {
                             event.setImmediateRunNextIteration(true);

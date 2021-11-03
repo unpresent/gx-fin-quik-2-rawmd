@@ -1,21 +1,23 @@
 service:
   name: quik-2-rawmd
-  simple-worker.enabled: true
+  simple-settings-controller:
+    enabled: true
+  simple-worker:
+    enabled: true
+    wait-on-stop-ms: 5000
+    wait-on-restart-ms: 20000
+    min-time-per-iteration-ms: 3000
+    timeout-runner-life-ms: 30000
   active-connections-container.enabled: true
   income-topics:
     configurator-caller.enabled: true
     simple-configuration.enabled: true
     standard-loader.enabled: true
     standard-offsets-controller.enabled: true
-    jdbc-saver.enabled: true
-    jdbc-loader.enabled: true
-
-# quik-2-rawmd
-quik-2-rawmd:
-  wait_on_stop_ms: 3000
-  wait_on_restart_ms: 20000
-  min_time_per_iteration_ms: 1000
-  timeout_runner_life_ms: 30000
+  offsets-loaders:
+    native-jdbc.enabled: true
+  offsets-savers:
+    native-jdbc.enabled: true
 
 # Логирование
 logging:
@@ -35,10 +37,8 @@ server:
 #kafka
 kafka:
   server: localhost:9092
-  group_id: quik-2-rawmd
-  duration_on_poll_ms : 50
-  income_topic:
-    all_trades: quikProviderAllTrades
+  income-topics:
+    all-trades: quikProviderAllTrades
     deals: quikProviderDeals
     orders: quikProviderOrders
     securities: quikProviderSecurities

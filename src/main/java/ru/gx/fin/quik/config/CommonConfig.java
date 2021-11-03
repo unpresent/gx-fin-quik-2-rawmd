@@ -10,6 +10,9 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.core.KafkaAdmin;
 import ru.gx.fin.quik.dbadapter.DbAdapter;
@@ -24,14 +27,18 @@ import ru.gx.kafka.load.IncomeTopicsConfiguration;
 import ru.gx.kafka.load.IncomeTopicsConfigurator;
 import ru.gx.kafka.load.LoadingMode;
 import ru.gx.kafka.load.RawDataIncomeTopicLoadingDescriptor;
+import ru.gx.kafka.offsets.TopicsOffsetsLoader;
+import ru.gx.kafka.offsets.TopicsOffsetsSaver;
+import ru.gx.std.offsets.JdbcTopicsOffsetsLoader;
+import ru.gx.std.offsets.JdbcTopicsOffsetsSaver;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Properties;
 
 import static lombok.AccessLevel.PROTECTED;
 
-// @EnableJpaRepositories({"ru.gx.fin.quik.repositories"})
-// @EntityScan({"ru.gx.fin.quik.entities"})
+@EnableConfigurationProperties(ConfigurationPropertiesKafka.class)
 public abstract class CommonConfig implements IncomeTopicsConfigurator {
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Common">
@@ -90,7 +97,8 @@ public abstract class CommonConfig implements IncomeTopicsConfigurator {
     @Value(value = "${kafka.server}")
     private String kafkaServer;
 
-    @Value("${kafka.group_id}")
+    // TODO: Подумать...
+    @Value("${service.name}")
     private String kafkaGroupId;
 
     @Bean
@@ -119,6 +127,7 @@ public abstract class CommonConfig implements IncomeTopicsConfigurator {
                 .setSerializeMode(SerializeMode.String)
                 .setTopicMessageMode(TopicMessageMode.Package)
                 .setLoadingMode(LoadingMode.Auto)
+                .setDurationOnPoll(Duration.ofMillis(10))
                 .setPartitions(0)
                 .setConsumerProperties(consumerProperties());
 
