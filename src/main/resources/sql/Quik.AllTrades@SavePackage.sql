@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE "Quik"."AllTrades@SavePackage"(Data character varying)
+CREATE OR REPLACE PROCEDURE "Quik"."AllTrades@SavePackage"(Data text)
 LANGUAGE PLPGSQL
 AS $$
 BEGIN
