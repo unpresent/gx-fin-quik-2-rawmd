@@ -10,27 +10,21 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.core.KafkaAdmin;
+import ru.gx.channels.ChannelMessageMode;
+import ru.gx.channels.ChannelsConfiguration;
+import ru.gx.channels.ChannelsConfigurator;
+import ru.gx.channels.SerializeMode;
 import ru.gx.fin.quik.dbadapter.DbAdapter;
 import ru.gx.fin.quik.dbadapter.DbAdapterSettingsContainer;
 import ru.gx.fin.quik.events.LoadedAllTradesEvent;
 import ru.gx.fin.quik.events.LoadedDealsEvent;
 import ru.gx.fin.quik.events.LoadedOrdersEvent;
 import ru.gx.fin.quik.events.LoadedSecuritiesEvent;
-import ru.gx.kafka.SerializeMode;
-import ru.gx.kafka.TopicMessageMode;
-import ru.gx.kafka.load.IncomeTopicsConfiguration;
-import ru.gx.kafka.load.IncomeTopicsConfigurator;
-import ru.gx.kafka.load.LoadingMode;
-import ru.gx.kafka.load.RawDataIncomeTopicLoadingDescriptor;
-import ru.gx.kafka.offsets.TopicsOffsetsLoader;
-import ru.gx.kafka.offsets.TopicsOffsetsSaver;
-import ru.gx.std.offsets.JdbcTopicsOffsetsLoader;
-import ru.gx.std.offsets.JdbcTopicsOffsetsSaver;
+import ru.gx.kafka.load.AbstractKafkaIncomeTopicsConfiguration;
+import ru.gx.kafka.load.KafkaIncomeTopicLoadingDescriptor;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -39,7 +33,7 @@ import java.util.Properties;
 import static lombok.AccessLevel.PROTECTED;
 
 @EnableConfigurationProperties(ConfigurationPropertiesKafka.class)
-public abstract class CommonConfig implements IncomeTopicsConfigurator {
+public abstract class CommonConfig implements ChannelsConfigurator {
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Common">
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
@@ -121,41 +115,43 @@ public abstract class CommonConfig implements IncomeTopicsConfigurator {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public void configureIncomeTopics(@NotNull IncomeTopicsConfiguration incomeTopicsConfiguration) {
-        incomeTopicsConfiguration.getDescriptorsDefaults()
-                .setSerializeMode(SerializeMode.String)
-                .setTopicMessageMode(TopicMessageMode.Package)
-                .setLoadingMode(LoadingMode.Auto)
-                .setDurationOnPoll(Duration.ofMillis(10))
-                .setPartitions(0)
-                .setConsumerProperties(consumerProperties());
+    public void configureChannels(@NotNull ChannelsConfiguration channelsConfiguration) {
+        if (channelsConfiguration instanceof AbstractKafkaIncomeTopicsConfiguration) {
+            final var config = (AbstractKafkaIncomeTopicsConfiguration)channelsConfiguration;
+            config.getDescriptorsDefaults()
+                    .setDurationOnPoll(Duration.ofMillis(25))
+                    .setPartitions(0)
+                    .setConsumerProperties(consumerProperties())
+                    .setSerializeMode(SerializeMode.JsonString)
+                    .setMessageMode(ChannelMessageMode.Package);
 
-        incomeTopicsConfiguration
-                .newDescriptor(this.settings.getIncomeTopicSecurities(), RawDataIncomeTopicLoadingDescriptor.class)
-                .setPriority(0)
-                .setOnRawDataLoadedEventClass(LoadedSecuritiesEvent.class)
-                .init();
+                    config
+                            .newDescriptor(this.settings.getIncomeTopicSecurities(), KafkaIncomeTopicLoadingDescriptor.class)
+                            .setDataLoadedEventClass(LoadedSecuritiesEvent.class)
+                            .setPriority(0)
+                            .init();
 
-        incomeTopicsConfiguration
-                .newDescriptor(this.settings.getIncomeTopicOrders(), RawDataIncomeTopicLoadingDescriptor.class)
-                .setPriority(1)
-                .setOnRawDataLoadedEventClass(LoadedOrdersEvent.class)
-                .init();
+                    config
+                            .newDescriptor(this.settings.getIncomeTopicOrders(), KafkaIncomeTopicLoadingDescriptor.class)
+                            .setDataLoadedEventClass(LoadedOrdersEvent.class)
+                            .setPriority(0)
+                            .init();
 
-        incomeTopicsConfiguration
-                .newDescriptor(this.settings.getIncomeTopicDeals(), RawDataIncomeTopicLoadingDescriptor.class)
-                .setPriority(2)
-                .setOnRawDataLoadedEventClass(LoadedDealsEvent.class)
-                .init();
+                    config
+                            .newDescriptor(this.settings.getIncomeTopicDeals(), KafkaIncomeTopicLoadingDescriptor.class)
+                            .setDataLoadedEventClass(LoadedDealsEvent.class)
+                            .setPriority(0)
+                            .init();
 
-        incomeTopicsConfiguration
-                .newDescriptor(this.settings.getIncomeTopicAllTrades(), RawDataIncomeTopicLoadingDescriptor.class)
-                .setPriority(3)
-                .setOnRawDataLoadedEventClass(LoadedAllTradesEvent.class)
-                .init();
+            config
+                    .newDescriptor(this.settings.getIncomeTopicAllTrades(), KafkaIncomeTopicLoadingDescriptor.class)
+                    .setDataLoadedEventClass(LoadedAllTradesEvent.class)
+                    .setPriority(0)
+                    .init();
+        }
     }
-
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
 }

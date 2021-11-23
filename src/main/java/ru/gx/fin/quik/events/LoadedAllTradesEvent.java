@@ -1,8 +1,8 @@
 package ru.gx.fin.quik.events;
 
-import ru.gx.kafka.events.AbstractOnRawDataLoadedFromIncomeTopicEvent;
+import ru.gx.events.AbstractDataEvent;
 
-public class LoadedAllTradesEvent extends AbstractOnRawDataLoadedFromIncomeTopicEvent {
+public class LoadedAllTradesEvent extends AbstractDataEvent {
     public LoadedAllTradesEvent(Object source) {
         super(source);
     }

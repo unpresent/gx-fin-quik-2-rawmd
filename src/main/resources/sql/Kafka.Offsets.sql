@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "Kafka"."Offsets"
     "Topic"             character varying(100) COLLATE pg_catalog."default" NOT NULL,
     "Partition"         integer                                             NOT NULL,
     "Offset"            bigint                                                  NULL,
-    CONSTRAINT "IncomeOffsets_pkey" PRIMARY KEY ("Direction", "ServiceName", "Topic", "Partition")
+    CONSTRAINT "Offsets_pkey" PRIMARY KEY ("Direction", "ServiceName", "Topic", "Partition")
 ) TABLESPACE pg_default;
 
 ALTER TABLE "Kafka"."Offsets" OWNER TO gxfin;

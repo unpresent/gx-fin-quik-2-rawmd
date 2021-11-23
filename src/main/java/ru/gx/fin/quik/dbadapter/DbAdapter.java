@@ -4,31 +4,28 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
+import ru.gx.channels.ChannelDirection;
 import ru.gx.data.ActiveConnectionsContainer;
-import ru.gx.data.InvalidDataObjectTypeException;
 import ru.gx.fin.quik.events.LoadedAllTradesEvent;
 import ru.gx.fin.quik.events.LoadedDealsEvent;
 import ru.gx.fin.quik.events.LoadedOrdersEvent;
 import ru.gx.fin.quik.events.LoadedSecuritiesEvent;
-import ru.gx.kafka.TopicDirection;
-import ru.gx.kafka.load.*;
+import ru.gx.kafka.load.KafkaIncomeTopicsLoader;
+import ru.gx.kafka.load.KafkaIncomeTopicsOffsetsController;
+import ru.gx.kafka.load.SimpleKafkaIncomeTopicsConfiguration;
 import ru.gx.kafka.offsets.TopicsOffsetsLoader;
 import ru.gx.kafka.offsets.TopicsOffsetsSaver;
-import ru.gx.std.offsets.JdbcTopicsOffsetsLoader;
-import ru.gx.std.offsets.JdbcTopicsOffsetsSaver;
-import ru.gx.worker.SimpleOnIterationExecuteEvent;
-import ru.gx.worker.SimpleOnStartingExecuteEvent;
-import ru.gx.worker.SimpleOnStoppingExecuteEvent;
-import ru.gx.worker.SimpleWorker;
+import ru.gx.simpleworker.SimpleWorker;
+import ru.gx.simpleworker.SimpleWorkerOnIterationExecuteEvent;
+import ru.gx.simpleworker.SimpleWorkerOnStartingExecuteEvent;
+import ru.gx.simpleworker.SimpleWorkerOnStoppingExecuteEvent;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
+import java.security.InvalidParameterException;
 import java.sql.SQLException;
-import java.util.Collection;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -61,15 +58,15 @@ public class DbAdapter {
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private SimpleIncomeTopicsConfiguration incomeTopicsConfiguration;
+    private SimpleKafkaIncomeTopicsConfiguration incomeTopicsConfiguration;
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private StandardIncomeTopicsLoader incomeTopicsLoader;
+    private KafkaIncomeTopicsLoader incomeTopicsLoader;
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private IncomeTopicsOffsetsController incomeTopicsOffsetsController;
+    private KafkaIncomeTopicsOffsetsController incomeTopicsOffsetsController;
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
@@ -82,10 +79,11 @@ public class DbAdapter {
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Обработка событий Worker-а">
 
-    private void saveData(@NotNull final String callProc, @NotNull final Collection<ConsumerRecord<?, ?>> data) {
-        if (data.size() <= 0) {
-            return;
+    private void saveData(@NotNull final String callProc, @NotNull final Object data) {
+        if (!(data instanceof String)) {
+            throw new InvalidParameterException("Parameter data isn't instance of String!");
         }
+        final var jsonData = (String) data;
         final var timeStarted = System.currentTimeMillis();
         final var connection = this.connectionsContainer.getCurrent();
         try {
@@ -93,14 +91,10 @@ public class DbAdapter {
                 throw new SQLException("Connection doesn't opened!");
             }
             try (final var stmt = this.connectionsContainer.getCurrent().prepareCall(callProc)) {
-                var i = 0;
-                for (var rec : data) {
-                    this.simpleWorker.runnerIsLifeSet();
-                    stmt.setString(1, (String) rec.value());
-                    stmt.execute();
-                    i++;
-                }
-                log.info("Executed: {} {} times in {} ms", callProc, i, System.currentTimeMillis() - timeStarted);
+                this.simpleWorker.runnerIsLifeSet();
+                stmt.setString(1, jsonData);
+                stmt.execute();
+                log.debug("Executed: {} in {} ms", callProc, System.currentTimeMillis() - timeStarted);
             }
         } catch (SQLException e) {
             log.error("", e);
@@ -115,13 +109,13 @@ public class DbAdapter {
      */
     @SneakyThrows(SQLException.class)
     @SuppressWarnings("unused")
-    @EventListener(SimpleOnStartingExecuteEvent.class)
-    public void startingExecute(SimpleOnStartingExecuteEvent event) {
+    @EventListener(SimpleWorkerOnStartingExecuteEvent.class)
+    public void startingExecute(SimpleWorkerOnStartingExecuteEvent event) {
         log.debug("Starting startingExecute()");
 
         try (var connection = getDataSource().getConnection()) {
             this.connectionsContainer.putCurrent(connection);
-            final var offsets = this.topicsOffsetsLoader.loadOffsets(TopicDirection.In, this.incomeTopicsConfiguration.getReaderName());
+            final var offsets = this.topicsOffsetsLoader.loadOffsets(ChannelDirection.In, this.incomeTopicsConfiguration.getConfigurationName());
             if (offsets.size() <= 0) {
                 this.incomeTopicsOffsetsController.seekAllToBegin(this.incomeTopicsConfiguration);
             } else {
@@ -140,8 +134,8 @@ public class DbAdapter {
      * @param event Объект-событие с параметрами.
      */
     @SuppressWarnings("unused")
-    @EventListener(SimpleOnStoppingExecuteEvent.class)
-    public void stoppingExecute(SimpleOnStoppingExecuteEvent event) {
+    @EventListener(SimpleWorkerOnStoppingExecuteEvent.class)
+    public void stoppingExecute(SimpleWorkerOnStoppingExecuteEvent event) {
         log.debug("Starting stoppingExecute()");
         log.debug("Finished stoppingExecute()");
     }
@@ -151,8 +145,8 @@ public class DbAdapter {
      *
      * @param event Объект-событие с параметрами итерации.
      */
-    @EventListener(SimpleOnIterationExecuteEvent.class)
-    public void iterationExecute(SimpleOnIterationExecuteEvent event) {
+    @EventListener(SimpleWorkerOnIterationExecuteEvent.class)
+    public void iterationExecute(SimpleWorkerOnIterationExecuteEvent event) {
         log.debug("Starting iterationExecute()");
         try {
             this.simpleWorker.runnerIsLifeSet();
@@ -163,15 +157,17 @@ public class DbAdapter {
                 try {
                     // Загружаем данные и сохраняем в БД
                     final var result = this.incomeTopicsLoader.processAllTopics(this.incomeTopicsConfiguration);
-                    for (var c: result.values()) {
-                        if (c.size() > 1) {
+                    for (var descriptor : result.keySet()) {
+                        final var count = result.get(descriptor);
+                        if (count > 1) {
+                            log.debug("Loaded from {} {} records", descriptor.getName(), count);
                             event.setImmediateRunNextIteration(true);
                             break;
                         }
                     }
                     // Сохраняем смещения
                     final var offsets = this.incomeTopicsOffsetsController.getOffsetsByConfiguration(this.incomeTopicsConfiguration);
-                    this.topicsOffsetsSaver.saveOffsets(TopicDirection.In, this.incomeTopicsConfiguration.getReaderName(), offsets);
+                    this.topicsOffsetsSaver.saveOffsets(ChannelDirection.In, this.incomeTopicsConfiguration.getConfigurationName(), offsets);
 
                 } catch (Exception e) {
                     internalTreatmentExceptionOnDataRead(event, e);
@@ -193,7 +189,7 @@ public class DbAdapter {
      * @param event Объект-событие с параметрами итерации.
      * @param e     Ошибка, которую требуется обработать.
      */
-    private void internalTreatmentExceptionOnDataRead(SimpleOnIterationExecuteEvent event, Exception e) {
+    private void internalTreatmentExceptionOnDataRead(SimpleWorkerOnIterationExecuteEvent event, Exception e) {
         log.error("", e);
         if (e instanceof InterruptedException) {
             log.info("event.setStopExecution(true)");
@@ -208,72 +204,96 @@ public class DbAdapter {
     // <editor-fold desc="Обработка событий о чтении данных из Kafka">
 
     /**
-     * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.model.internal.QuikSecurity}.
+     * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.provider.out.QuikSecurity}.
      *
      * @param event Объект-событие с параметрами.
      */
+    @SneakyThrows(SQLException.class)
     @EventListener(LoadedSecuritiesEvent.class)
     public void loadedSecurities(LoadedSecuritiesEvent event) {
-        if (event.getData().size() <= 0) {
+        if (event.getData() == null) {
             return;
         }
         log.debug("Starting loadedSecurities()");
         try {
-            this.saveData(callSaveSecurities, event.getData());
+            try (var connection = getDataSource().getConnection()) {
+                this.connectionsContainer.putCurrent(connection);
+                this.saveData(callSaveSecurities, event.getData());
+            } finally {
+                this.connectionsContainer.putCurrent(null);
+            }
         } finally {
             log.debug("Finished loadedSecurities()");
         }
     }
 
     /**
-     * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.model.internal.QuikDeal}.
+     * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.provider.out.QuikDeal}.
      *
      * @param event Объект-событие с параметрами.
      */
+    @SneakyThrows(SQLException.class)
     @EventListener(LoadedDealsEvent.class)
     public void loadedDeals(LoadedDealsEvent event) {
-        if (event.getData().size() <= 0) {
+        if (event.getData() == null) {
             return;
         }
         log.debug("Starting loadedDeals()");
         try {
-            this.saveData(callSaveDeals, event.getData());
+            try (var connection = getDataSource().getConnection()) {
+                this.connectionsContainer.putCurrent(connection);
+                this.saveData(callSaveDeals, event.getData());
+            } finally {
+                this.connectionsContainer.putCurrent(null);
+            }
         } finally {
             log.debug("Finished loadedDeals()");
         }
     }
 
     /**
-     * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.model.internal.QuikOrder}.
+     * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.provider.out.QuikOrder}.
      *
      * @param event Объект-событие с параметрами.
      */
+    @SneakyThrows(SQLException.class)
     @EventListener(LoadedOrdersEvent.class)
     public void loadedOrders(LoadedOrdersEvent event) {
-        if (event.getData().size() <= 0) {
+        if (event.getData() == null) {
             return;
         }
         log.debug("Starting loadedOrders()");
         try {
-            this.saveData(callSaveOrders, event.getData());
+            try (var connection = getDataSource().getConnection()) {
+                this.connectionsContainer.putCurrent(connection);
+                this.saveData(callSaveOrders, event.getData());
+            } finally {
+                this.connectionsContainer.putCurrent(null);
+            }
         } finally {
             log.debug("Finished loadedOrders()");
         }
     }
 
     /**
-     * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.model.internal.QuikAllTrade}.
+     * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.provider.out.QuikAllTrade}.
      *
      * @param event Объект-событие с параметрами.
      */
+    @SneakyThrows(SQLException.class)
     @EventListener(LoadedAllTradesEvent.class)
     public void loadedAllTrades(LoadedAllTradesEvent event) {
-        if (event.getData().size() <= 0) {
+        if (event.getData() == null) {
             return;
         }
         log.debug("Starting loadedAllTrades()");
         try {
-            this.saveData(callSaveAllTrades, event.getData());
+            try (var connection = getDataSource().getConnection()) {
+                this.connectionsContainer.putCurrent(connection);
+                this.saveData(callSaveAllTrades, event.getData());
+            } finally {
+                this.connectionsContainer.putCurrent(null);
+            }
         } finally {
             log.debug("Finished loadedAllTrades()");
         }

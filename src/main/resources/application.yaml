@@ -1,16 +1,16 @@
 service:
   name: quik-2-rawmd
-  simple-settings-controller:
-    enabled: true
+  active-connections-container.enabled: true
+  standard-settings-controller.enabled: true
   simple-worker:
     enabled: true
+    name: simple-worker
     wait-on-stop-ms: 5000
     wait-on-restart-ms: 20000
     min-time-per-iteration-ms: 3000
-    timeout-runner-life-ms: 30000
-  active-connections-container.enabled: true
+    timeout-runner-life-ms: 60000
+    print-statistics-every-ms: 1000
   income-topics:
-    configurator-caller.enabled: true
     simple-configuration.enabled: true
     standard-loader.enabled: true
     standard-offsets-controller.enabled: true
@@ -18,6 +18,21 @@ service:
     native-jdbc.enabled: true
   offsets-savers:
     native-jdbc.enabled: true
+  events:
+    standard-queue:
+      enabled: true
+      name: events-queue
+      max-queue-size: 10000
+      print-statistics-every-ms: 1000
+      priorities-count: 4
+    standard-executor:
+      enabled: true
+      name: events-executor
+      wait-on-stop-ms: 5000
+      wait-on-restart-ms: 20000
+      min-time-per-iteration-ms: 1000
+      timeout-runner-life-ms: 60000
+      print-statistics-every-ms: 1000
 
 # Логирование
 logging:
@@ -60,3 +75,16 @@ spring:
     # driverClassName: org.postgresql.Driver
     hikari:
       maximum-pool-size: 2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
