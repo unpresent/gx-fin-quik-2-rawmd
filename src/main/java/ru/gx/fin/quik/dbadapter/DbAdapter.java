@@ -7,25 +7,29 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
-import ru.gx.channels.ChannelDirection;
-import ru.gx.data.ActiveConnectionsContainer;
+import ru.gx.core.channels.ChannelDirection;
+import ru.gx.core.data.ActiveConnectionsContainer;
+import ru.gx.core.events.DataEvent;
+import ru.gx.core.kafka.KafkaConstants;
+import ru.gx.core.kafka.load.KafkaIncomeTopicsLoader;
+import ru.gx.core.kafka.load.KafkaIncomeTopicsOffsetsController;
+import ru.gx.core.kafka.load.SimpleKafkaIncomeTopicsConfiguration;
+import ru.gx.core.kafka.offsets.TopicPartitionOffset;
+import ru.gx.core.kafka.offsets.TopicsOffsetsLoader;
+import ru.gx.core.kafka.offsets.TopicsOffsetsSaver;
+import ru.gx.core.simpleworker.SimpleWorker;
+import ru.gx.core.simpleworker.SimpleWorkerOnIterationExecuteEvent;
+import ru.gx.core.simpleworker.SimpleWorkerOnStartingExecuteEvent;
+import ru.gx.core.simpleworker.SimpleWorkerOnStoppingExecuteEvent;
 import ru.gx.fin.quik.events.LoadedAllTradesEvent;
 import ru.gx.fin.quik.events.LoadedDealsEvent;
 import ru.gx.fin.quik.events.LoadedOrdersEvent;
 import ru.gx.fin.quik.events.LoadedSecuritiesEvent;
-import ru.gx.kafka.load.KafkaIncomeTopicsLoader;
-import ru.gx.kafka.load.KafkaIncomeTopicsOffsetsController;
-import ru.gx.kafka.load.SimpleKafkaIncomeTopicsConfiguration;
-import ru.gx.kafka.offsets.TopicsOffsetsLoader;
-import ru.gx.kafka.offsets.TopicsOffsetsSaver;
-import ru.gx.simpleworker.SimpleWorker;
-import ru.gx.simpleworker.SimpleWorkerOnIterationExecuteEvent;
-import ru.gx.simpleworker.SimpleWorkerOnStartingExecuteEvent;
-import ru.gx.simpleworker.SimpleWorkerOnStoppingExecuteEvent;
 
 import javax.sql.DataSource;
 import java.security.InvalidParameterException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -40,6 +44,8 @@ public class DbAdapter {
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Fields">
+    private final String serviceName;
+
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
     private DataSource dataSource;
@@ -77,13 +83,25 @@ public class DbAdapter {
     private TopicsOffsetsSaver topicsOffsetsSaver;
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
+    // <editor-fold desc="Initialization">
+
+    public DbAdapter(String serviceName) {
+        super();
+        this.serviceName = serviceName;
+    }
+
+    // </editor-fold>
+    // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Обработка событий Worker-а">
 
-    private void saveData(@NotNull final String callProc, @NotNull final Object data) {
-        if (!(data instanceof String)) {
+    private void saveData(
+            @NotNull final String callProc,
+            @NotNull final DataEvent event,
+            @NotNull final String topicName) {
+        final var data = event.getData();
+        if (!(data instanceof final String jsonData)) {
             throw new InvalidParameterException("Parameter data isn't instance of String!");
         }
-        final var jsonData = (String) data;
         final var timeStarted = System.currentTimeMillis();
         final var connection = this.connectionsContainer.getCurrent();
         try {
@@ -95,6 +113,19 @@ public class DbAdapter {
                 stmt.setString(1, jsonData);
                 stmt.execute();
                 log.debug("Executed: {} in {} ms", callProc, System.currentTimeMillis() - timeStarted);
+            }
+
+            final var partition = event.getMetadataValue(KafkaConstants.METADATA_PARTITION);
+            final var offset = event.getMetadataValue(KafkaConstants.METADATA_OFFSET);
+            if (partition instanceof Integer && offset instanceof Long) {
+                final var tps = new TopicPartitionOffset(
+                        topicName,
+                        (Integer) partition,
+                        (Long) offset
+                );
+                final var tpsArray = new ArrayList<TopicPartitionOffset>();
+                tpsArray.add(tps);
+                this.topicsOffsetsSaver.saveOffsets(ChannelDirection.In, this.serviceName, tpsArray);
             }
         } catch (SQLException e) {
             log.error("", e);
@@ -155,7 +186,7 @@ public class DbAdapter {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
                 try {
-                    // Загружаем данные и сохраняем в БД
+                    // Загружаем данные и отправляем в очередь на обработку
                     final var result = this.incomeTopicsLoader.processAllTopics(this.incomeTopicsConfiguration);
                     for (var descriptor : result.keySet()) {
                         final var count = result.get(descriptor);
@@ -165,10 +196,6 @@ public class DbAdapter {
                             break;
                         }
                     }
-                    // Сохраняем смещения
-                    final var offsets = this.incomeTopicsOffsetsController.getOffsetsByConfiguration(this.incomeTopicsConfiguration);
-                    this.topicsOffsetsSaver.saveOffsets(ChannelDirection.In, this.incomeTopicsConfiguration.getConfigurationName(), offsets);
-
                 } catch (Exception e) {
                     internalTreatmentExceptionOnDataRead(event, e);
                 }
@@ -218,7 +245,7 @@ public class DbAdapter {
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveSecurities, event.getData());
+                this.saveData(callSaveSecurities, event, settings.getIncomeTopicSecurities());
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -242,7 +269,7 @@ public class DbAdapter {
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveDeals, event.getData());
+                this.saveData(callSaveDeals, event, settings.getIncomeTopicDeals());
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -266,7 +293,7 @@ public class DbAdapter {
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveOrders, event.getData());
+                this.saveData(callSaveOrders, event, settings.getIncomeTopicOrders());
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -290,7 +317,7 @@ public class DbAdapter {
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveAllTrades, event.getData());
+                this.saveData(callSaveAllTrades, event, settings.getIncomeTopicAllTrades());
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }

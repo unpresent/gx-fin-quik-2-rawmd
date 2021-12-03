@@ -10,10 +10,19 @@ service:
     min-time-per-iteration-ms: 3000
     timeout-runner-life-ms: 60000
     print-statistics-every-ms: 1000
-  income-topics:
-    simple-configuration.enabled: true
-    standard-loader.enabled: true
-    standard-offsets-controller.enabled: true
+  channels:
+    configurator-caller:
+      enabled: true
+  kafka:
+    server: localhost:9092
+    income-topics:
+      simple-configuration.enabled: true
+      standard-loader.enabled: true
+      standard-offsets-controller.enabled: true
+      all-trades: quikProviderAllTrades
+      deals: quikProviderDeals
+      orders: quikProviderOrders
+      securities: quikProviderSecurities
   offsets-loaders:
     native-jdbc.enabled: true
   offsets-savers:
@@ -22,9 +31,9 @@ service:
     standard-queue:
       enabled: true
       name: events-queue
-      max-queue-size: 10000
+      max-queue-size: 5000
       print-statistics-every-ms: 1000
-      priorities-count: 4
+      priorities-count: 2
     standard-executor:
       enabled: true
       name: events-executor
@@ -49,30 +58,12 @@ logging:
 server:
   port: 7002
 
-#kafka
-kafka:
-  server: localhost:9092
-  income-topics:
-    all-trades: quikProviderAllTrades
-    deals: quikProviderDeals
-    orders: quikProviderOrders
-    securities: quikProviderSecurities
-
 #data
 spring:
-  # jpa:
-    # database-platform: org.hibernate.dialect.PostgreSQL95Dialect
-    # show-sql: false
-    # hibernate:
-      # ddl-auto: validate # create, create-drop, update, validate
-      # naming:
-        # physical-strategy: ru.gx.data.jpa.naming.PhysicalNamingStrategyQuotedImpl
-
   datasource:
     url: jdbc:postgresql://localhost:5432/gxfin_rawmd
     username: quik
     password: 12033021
-    # driverClassName: org.postgresql.Driver
     hikari:
       maximum-pool-size: 2
 

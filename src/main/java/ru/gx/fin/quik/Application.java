@@ -1,10 +1,9 @@
 package ru.gx.fin.quik;
 
-import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import ru.gx.events.DoStartStandardEventsExecutorEvent;
-import ru.gx.simpleworker.DoStartSimpleWorkerEvent;
+import ru.gx.core.events.DoStartStandardEventsExecutorEvent;
+import ru.gx.core.simpleworker.DoStartSimpleWorkerEvent;
 
 @SpringBootApplication
 public class Application {

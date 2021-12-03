@@ -13,18 +13,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.core.KafkaAdmin;
-import ru.gx.channels.ChannelMessageMode;
-import ru.gx.channels.ChannelsConfiguration;
-import ru.gx.channels.ChannelsConfigurator;
-import ru.gx.channels.SerializeMode;
+import ru.gx.core.channels.ChannelMessageMode;
+import ru.gx.core.channels.ChannelsConfiguration;
+import ru.gx.core.channels.ChannelsConfigurator;
+import ru.gx.core.channels.SerializeMode;
+import ru.gx.core.kafka.load.AbstractKafkaIncomeTopicsConfiguration;
+import ru.gx.core.kafka.load.KafkaIncomeTopicLoadingDescriptor;
 import ru.gx.fin.quik.dbadapter.DbAdapter;
 import ru.gx.fin.quik.dbadapter.DbAdapterSettingsContainer;
 import ru.gx.fin.quik.events.LoadedAllTradesEvent;
 import ru.gx.fin.quik.events.LoadedDealsEvent;
 import ru.gx.fin.quik.events.LoadedOrdersEvent;
 import ru.gx.fin.quik.events.LoadedSecuritiesEvent;
-import ru.gx.kafka.load.AbstractKafkaIncomeTopicsConfiguration;
-import ru.gx.kafka.load.KafkaIncomeTopicLoadingDescriptor;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -32,10 +32,13 @@ import java.util.Properties;
 
 import static lombok.AccessLevel.PROTECTED;
 
-@EnableConfigurationProperties(ConfigurationPropertiesKafka.class)
+@EnableConfigurationProperties(ConfigurationPropertiesServiceKafka.class)
 public abstract class CommonConfig implements ChannelsConfigurator {
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Common">
+    @Value("${service.name}")
+    private String serviceName;
+
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
     private DbAdapterSettingsContainer settings;
 
@@ -55,7 +58,7 @@ public abstract class CommonConfig implements ChannelsConfigurator {
 
     @Bean
     public DbAdapter dbAdapter() {
-        return new DbAdapter();
+        return new DbAdapter(serviceName);
     }
 
     // </editor-fold>
@@ -88,12 +91,8 @@ public abstract class CommonConfig implements ChannelsConfigurator {
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Kafka Common">
-    @Value(value = "${kafka.server}")
+    @Value(value = "${service.kafka.server}")
     private String kafkaServer;
-
-    // TODO: Подумать...
-    @Value("${service.name}")
-    private String kafkaGroupId;
 
     @Bean
     public KafkaAdmin kafkaAdmin() {
@@ -108,7 +107,7 @@ public abstract class CommonConfig implements ChannelsConfigurator {
     public Properties consumerProperties() {
         final var result = new Properties();
         result.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServer);
-        result.put(ConsumerConfig.GROUP_ID_CONFIG, kafkaGroupId);
+        result.put(ConsumerConfig.GROUP_ID_CONFIG, this.serviceName);
         result.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, LongDeserializer.class);
         result.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         result.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
@@ -118,8 +117,7 @@ public abstract class CommonConfig implements ChannelsConfigurator {
     @SuppressWarnings("unchecked")
     @Override
     public void configureChannels(@NotNull ChannelsConfiguration channelsConfiguration) {
-        if (channelsConfiguration instanceof AbstractKafkaIncomeTopicsConfiguration) {
-            final var config = (AbstractKafkaIncomeTopicsConfiguration)channelsConfiguration;
+        if (channelsConfiguration instanceof final AbstractKafkaIncomeTopicsConfiguration config) {
             config.getDescriptorsDefaults()
                     .setDurationOnPoll(Duration.ofMillis(25))
                     .setPartitions(0)
@@ -127,28 +125,28 @@ public abstract class CommonConfig implements ChannelsConfigurator {
                     .setSerializeMode(SerializeMode.JsonString)
                     .setMessageMode(ChannelMessageMode.Package);
 
-                    config
-                            .newDescriptor(this.settings.getIncomeTopicSecurities(), KafkaIncomeTopicLoadingDescriptor.class)
-                            .setDataLoadedEventClass(LoadedSecuritiesEvent.class)
-                            .setPriority(0)
-                            .init();
+            config
+                    .newDescriptor(this.settings.getIncomeTopicSecurities(), KafkaIncomeTopicLoadingDescriptor.class)
+                    .setDataLoadedEventClass(LoadedSecuritiesEvent.class)
+                    .setPriority(0)
+                    .init();
 
-                    config
-                            .newDescriptor(this.settings.getIncomeTopicOrders(), KafkaIncomeTopicLoadingDescriptor.class)
-                            .setDataLoadedEventClass(LoadedOrdersEvent.class)
-                            .setPriority(0)
-                            .init();
+            config
+                    .newDescriptor(this.settings.getIncomeTopicOrders(), KafkaIncomeTopicLoadingDescriptor.class)
+                    .setDataLoadedEventClass(LoadedOrdersEvent.class)
+                    .setPriority(0)
+                    .init();
 
-                    config
-                            .newDescriptor(this.settings.getIncomeTopicDeals(), KafkaIncomeTopicLoadingDescriptor.class)
-                            .setDataLoadedEventClass(LoadedDealsEvent.class)
-                            .setPriority(0)
-                            .init();
+            config
+                    .newDescriptor(this.settings.getIncomeTopicDeals(), KafkaIncomeTopicLoadingDescriptor.class)
+                    .setDataLoadedEventClass(LoadedDealsEvent.class)
+                    .setPriority(0)
+                    .init();
 
             config
                     .newDescriptor(this.settings.getIncomeTopicAllTrades(), KafkaIncomeTopicLoadingDescriptor.class)
                     .setDataLoadedEventClass(LoadedAllTradesEvent.class)
-                    .setPriority(0)
+                    .setPriority(1)
                     .init();
         }
     }

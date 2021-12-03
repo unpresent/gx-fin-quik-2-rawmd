@@ -5,14 +5,14 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
-@ConfigurationProperties(prefix = "kafka")
+@ConfigurationProperties(prefix = "service.kafka")
 @Getter
 @Setter
-public class ConfigurationPropertiesKafka {
-    public static final String INCOME_TOPIC_ALL_TRADES = "kafka.income-topics.all-trades";
-    public static final String INCOME_TOPIC_DEALS = "kafka.income-topics.deals";
-    public static final String INCOME_TOPIC_ORDERS = "kafka.income-topics.orders";
-    public static final String INCOME_TOPIC_SECURITIES = "kafka.income-topics.securities";
+public class ConfigurationPropertiesServiceKafka {
+    public static final String INCOME_TOPIC_ALL_TRADES = "service.kafka.income-topics.all-trades";
+    public static final String INCOME_TOPIC_DEALS = "service.kafka.income-topics.deals";
+    public static final String INCOME_TOPIC_ORDERS = "service.kafka.income-topics.orders";
+    public static final String INCOME_TOPIC_SECURITIES = "service.kafka.income-topics.securities";
 
     @NestedConfigurationProperty
     private IncomeTopics incomeTopics = new IncomeTopics();
