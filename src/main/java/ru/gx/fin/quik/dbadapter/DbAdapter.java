@@ -15,8 +15,7 @@ import ru.gx.core.kafka.load.KafkaIncomeTopicsLoader;
 import ru.gx.core.kafka.load.KafkaIncomeTopicsOffsetsController;
 import ru.gx.core.kafka.load.SimpleKafkaIncomeTopicsConfiguration;
 import ru.gx.core.kafka.offsets.TopicPartitionOffset;
-import ru.gx.core.kafka.offsets.TopicsOffsetsLoader;
-import ru.gx.core.kafka.offsets.TopicsOffsetsSaver;
+import ru.gx.core.kafka.offsets.TopicsOffsetsController;
 import ru.gx.core.simpleworker.SimpleWorker;
 import ru.gx.core.simpleworker.SimpleWorkerOnIterationExecuteEvent;
 import ru.gx.core.simpleworker.SimpleWorkerOnStartingExecuteEvent;
@@ -76,11 +75,8 @@ public class DbAdapter {
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private TopicsOffsetsLoader topicsOffsetsLoader;
+    private TopicsOffsetsController topicsOffsetsController;
 
-    @Getter(PROTECTED)
-    @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private TopicsOffsetsSaver topicsOffsetsSaver;
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Initialization">
@@ -125,7 +121,7 @@ public class DbAdapter {
                 );
                 final var tpsArray = new ArrayList<TopicPartitionOffset>();
                 tpsArray.add(tps);
-                this.topicsOffsetsSaver.saveOffsets(ChannelDirection.In, this.serviceName, tpsArray);
+                this.topicsOffsetsController.saveOffsets(ChannelDirection.In, this.serviceName, tpsArray);
             }
         } catch (SQLException e) {
             log.error("", e);
@@ -146,7 +142,7 @@ public class DbAdapter {
 
         try (var connection = getDataSource().getConnection()) {
             this.connectionsContainer.putCurrent(connection);
-            final var offsets = this.topicsOffsetsLoader.loadOffsets(ChannelDirection.In, this.incomeTopicsConfiguration.getConfigurationName());
+            final var offsets = this.topicsOffsetsController.loadOffsets(ChannelDirection.In, this.incomeTopicsConfiguration.getConfigurationName());
             if (offsets.size() <= 0) {
                 this.incomeTopicsOffsetsController.seekAllToBegin(this.incomeTopicsConfiguration);
             } else {

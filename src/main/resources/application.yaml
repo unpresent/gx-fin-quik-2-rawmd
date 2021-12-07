@@ -11,22 +11,19 @@ service:
     timeout-runner-life-ms: 60000
     print-statistics-every-ms: 1000
   channels:
-    configurator-caller:
-      enabled: true
+    configurator-caller.enabled: true
   kafka:
     server: localhost:9092
     income-topics:
       simple-configuration.enabled: true
       standard-loader.enabled: true
       standard-offsets-controller.enabled: true
-      all-trades: quikProviderAllTrades
-      deals: quikProviderDeals
-      orders: quikProviderOrders
-      securities: quikProviderSecurities
-  offsets-loaders:
-    native-jdbc.enabled: true
-  offsets-savers:
-    native-jdbc.enabled: true
+      all-trades: quik.provider-all-trades
+      deals: quik.provider-deals
+      orders: quik.provider-orders
+      securities: quik.provider-securities
+  offsets-controller:
+    type: jdbc
   events:
     standard-queue:
       enabled: true
@@ -56,7 +53,7 @@ logging:
 
 # Настройки Сервера
 server:
-  port: 7002
+  port: 7102
 
 #data
 spring:

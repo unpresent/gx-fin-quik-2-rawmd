@@ -19,11 +19,11 @@ public class DbAdapterSettingsContainer {
     private StandardSettingsController standardSettingsController;
 
     @PostConstruct
-    public void init() throws UnknownApplicationSettingException {
-        this.standardSettingsController.loadStringSetting(ConfigurationPropertiesServiceKafka.INCOME_TOPIC_ALL_TRADES);
-        this.standardSettingsController.loadStringSetting(ConfigurationPropertiesServiceKafka.INCOME_TOPIC_DEALS);
-        this.standardSettingsController.loadStringSetting(ConfigurationPropertiesServiceKafka.INCOME_TOPIC_ORDERS);
-        this.standardSettingsController.loadStringSetting(ConfigurationPropertiesServiceKafka.INCOME_TOPIC_SECURITIES);
+    public void init() {
+        this.standardSettingsController.loadStringSetting(ConfigurationPropertiesServiceKafka.INCOME_TOPIC_ALL_TRADES, ConfigurationPropertiesServiceKafka.INCOME_TOPIC_ALL_TRADES_DEFAULT_VALUE);
+        this.standardSettingsController.loadStringSetting(ConfigurationPropertiesServiceKafka.INCOME_TOPIC_DEALS, ConfigurationPropertiesServiceKafka.INCOME_TOPIC_DEALS_DEFAULT_VALUE);
+        this.standardSettingsController.loadStringSetting(ConfigurationPropertiesServiceKafka.INCOME_TOPIC_ORDERS, ConfigurationPropertiesServiceKafka.INCOME_TOPIC_ORDERS_DEFAULT_VALUE);
+        this.standardSettingsController.loadStringSetting(ConfigurationPropertiesServiceKafka.INCOME_TOPIC_SECURITIES, ConfigurationPropertiesServiceKafka.INCOME_TOPIC_SECURITIES_DEFAULT_VALUE);
     }
 
     public String getIncomeTopicAllTrades() {
