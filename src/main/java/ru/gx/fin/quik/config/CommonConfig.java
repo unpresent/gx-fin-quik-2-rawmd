@@ -2,15 +2,12 @@ package ru.gx.fin.quik.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import lombok.Setter;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.jetbrains.annotations.NotNull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.core.KafkaAdmin;
 import ru.gx.core.channels.ChannelMessageMode;
@@ -19,28 +16,22 @@ import ru.gx.core.channels.ChannelsConfigurator;
 import ru.gx.core.channels.SerializeMode;
 import ru.gx.core.kafka.load.AbstractKafkaIncomeTopicsConfiguration;
 import ru.gx.core.kafka.load.KafkaIncomeTopicLoadingDescriptor;
+import ru.gx.fin.gate.quik.provider.config.QuikProviderChannelsNames;
+import ru.gx.fin.gate.quik.provider.events.LoadedQuikProviderStreamAllTradesEvent;
+import ru.gx.fin.gate.quik.provider.events.LoadedQuikProviderStreamDealsEvent;
+import ru.gx.fin.gate.quik.provider.events.LoadedQuikProviderStreamOrdersEvent;
+import ru.gx.fin.gate.quik.provider.events.LoadedQuikProviderStreamSecuritiesEvent;
 import ru.gx.fin.quik.dbadapter.DbAdapter;
-import ru.gx.fin.quik.dbadapter.DbAdapterSettingsContainer;
-import ru.gx.fin.quik.events.LoadedAllTradesEvent;
-import ru.gx.fin.quik.events.LoadedDealsEvent;
-import ru.gx.fin.quik.events.LoadedOrdersEvent;
-import ru.gx.fin.quik.events.LoadedSecuritiesEvent;
 
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Properties;
 
-import static lombok.AccessLevel.PROTECTED;
-
-@EnableConfigurationProperties(ConfigurationPropertiesServiceKafka.class)
 public abstract class CommonConfig implements ChannelsConfigurator {
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Common">
     @Value("${service.name}")
     private String serviceName;
-
-    @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private DbAdapterSettingsContainer settings;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -52,42 +43,9 @@ public abstract class CommonConfig implements ChannelsConfigurator {
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="DbAdapter & Settings">
     @Bean
-    public DbAdapterSettingsContainer dbAdapterSettingsContainer() {
-        return new DbAdapterSettingsContainer();
-    }
-
-    @Bean
     public DbAdapter dbAdapter() {
         return new DbAdapter(serviceName);
     }
-
-    // </editor-fold>
-    // -----------------------------------------------------------------------------------------------------------------
-    // <editor-fold desc="Events">
-    @Bean
-    @Autowired
-    public LoadedAllTradesEvent loadedAllTradesEvent(DbAdapter dbAdapter) {
-        return new LoadedAllTradesEvent(dbAdapter);
-    }
-
-    @Bean
-    @Autowired
-    public LoadedOrdersEvent loadedOrdersEvent(DbAdapter dbAdapter) {
-        return new LoadedOrdersEvent(dbAdapter);
-    }
-
-    @Bean
-    @Autowired
-    public LoadedDealsEvent loadedDealsEvent(DbAdapter dbAdapter) {
-        return new LoadedDealsEvent(dbAdapter);
-    }
-
-    @Bean
-    @Autowired
-    public LoadedSecuritiesEvent loadedSecuritiesEvent(DbAdapter dbAdapter) {
-        return new LoadedSecuritiesEvent(dbAdapter);
-    }
-
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------
     // <editor-fold desc="Kafka Common">
@@ -126,27 +84,27 @@ public abstract class CommonConfig implements ChannelsConfigurator {
                     .setMessageMode(ChannelMessageMode.Package);
 
             config
-                    .newDescriptor(this.settings.getIncomeTopicSecurities(), KafkaIncomeTopicLoadingDescriptor.class)
-                    .setDataLoadedEventClass(LoadedSecuritiesEvent.class)
+                    .newDescriptor(QuikProviderChannelsNames.Streams.SECURITIES, KafkaIncomeTopicLoadingDescriptor.class)
+                    .setDataLoadedEventClass(LoadedQuikProviderStreamSecuritiesEvent.class)
                     .setPriority(0)
                     .init();
 
             config
-                    .newDescriptor(this.settings.getIncomeTopicOrders(), KafkaIncomeTopicLoadingDescriptor.class)
-                    .setDataLoadedEventClass(LoadedOrdersEvent.class)
-                    .setPriority(0)
-                    .init();
-
-            config
-                    .newDescriptor(this.settings.getIncomeTopicDeals(), KafkaIncomeTopicLoadingDescriptor.class)
-                    .setDataLoadedEventClass(LoadedDealsEvent.class)
-                    .setPriority(0)
-                    .init();
-
-            config
-                    .newDescriptor(this.settings.getIncomeTopicAllTrades(), KafkaIncomeTopicLoadingDescriptor.class)
-                    .setDataLoadedEventClass(LoadedAllTradesEvent.class)
+                    .newDescriptor(QuikProviderChannelsNames.Streams.ORDERS, KafkaIncomeTopicLoadingDescriptor.class)
+                    .setDataLoadedEventClass(LoadedQuikProviderStreamOrdersEvent.class)
                     .setPriority(1)
+                    .init();
+
+            config
+                    .newDescriptor(QuikProviderChannelsNames.Streams.DEALS, KafkaIncomeTopicLoadingDescriptor.class)
+                    .setDataLoadedEventClass(LoadedQuikProviderStreamDealsEvent.class)
+                    .setPriority(2)
+                    .init();
+
+            config
+                    .newDescriptor(QuikProviderChannelsNames.Streams.ALL_TRADES, KafkaIncomeTopicLoadingDescriptor.class)
+                    .setDataLoadedEventClass(LoadedQuikProviderStreamAllTradesEvent.class)
+                    .setPriority(3)
                     .init();
         }
     }

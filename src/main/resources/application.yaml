@@ -18,10 +18,6 @@ service:
       simple-configuration.enabled: true
       standard-loader.enabled: true
       standard-offsets-controller.enabled: true
-      all-trades: quik.provider-all-trades
-      deals: quik.provider-deals
-      orders: quik.provider-orders
-      securities: quik.provider-securities
   offsets-controller:
     type: jdbc
   events:
@@ -30,7 +26,7 @@ service:
       name: events-queue
       max-queue-size: 5000
       print-statistics-every-ms: 1000
-      priorities-count: 2
+      priorities-count: 4
     standard-executor:
       enabled: true
       name: events-executor

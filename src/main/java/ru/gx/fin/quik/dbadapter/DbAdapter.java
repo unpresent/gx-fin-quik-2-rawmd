@@ -20,10 +20,9 @@ import ru.gx.core.simpleworker.SimpleWorker;
 import ru.gx.core.simpleworker.SimpleWorkerOnIterationExecuteEvent;
 import ru.gx.core.simpleworker.SimpleWorkerOnStartingExecuteEvent;
 import ru.gx.core.simpleworker.SimpleWorkerOnStoppingExecuteEvent;
-import ru.gx.fin.quik.events.LoadedAllTradesEvent;
-import ru.gx.fin.quik.events.LoadedDealsEvent;
-import ru.gx.fin.quik.events.LoadedOrdersEvent;
-import ru.gx.fin.quik.events.LoadedSecuritiesEvent;
+import ru.gx.fin.gate.quik.provider.events.*;
+import ru.gx.fin.gate.quik.provider.events.LoadedQuikProviderStreamDealsEvent;
+import ru.gx.fin.gate.quik.provider.events.LoadedQuikProviderStreamSecuritiesEvent;
 
 import javax.sql.DataSource;
 import java.security.InvalidParameterException;
@@ -59,10 +58,6 @@ public class DbAdapter {
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private DbAdapterSettingsContainer settings;
-
-    @Getter(PROTECTED)
-    @Setter(value = PROTECTED, onMethod_ = @Autowired)
     private SimpleKafkaIncomeTopicsConfiguration incomeTopicsConfiguration;
 
     @Getter(PROTECTED)
@@ -92,12 +87,12 @@ public class DbAdapter {
 
     private void saveData(
             @NotNull final String callProc,
-            @NotNull final DataEvent event,
-            @NotNull final String topicName) {
+            @NotNull final DataEvent event) {
         final var data = event.getData();
         if (!(data instanceof final String jsonData)) {
             throw new InvalidParameterException("Parameter data isn't instance of String!");
         }
+        final var topicName = event.getChannelDescriptor().getName();
         final var timeStarted = System.currentTimeMillis();
         final var connection = this.connectionsContainer.getCurrent();
         try {
@@ -127,7 +122,6 @@ public class DbAdapter {
             log.error("", e);
         }
     }
-
 
     /**
      * Обработка события о начале работы цикла итераций.
@@ -232,8 +226,8 @@ public class DbAdapter {
      * @param event Объект-событие с параметрами.
      */
     @SneakyThrows(SQLException.class)
-    @EventListener(LoadedSecuritiesEvent.class)
-    public void loadedSecurities(LoadedSecuritiesEvent event) {
+    @EventListener(LoadedQuikProviderStreamSecuritiesEvent.class)
+    public void loadedSecurities(LoadedQuikProviderStreamSecuritiesEvent event) {
         if (event.getData() == null) {
             return;
         }
@@ -241,7 +235,7 @@ public class DbAdapter {
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveSecurities, event, settings.getIncomeTopicSecurities());
+                this.saveData(callSaveSecurities, event);
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -256,8 +250,8 @@ public class DbAdapter {
      * @param event Объект-событие с параметрами.
      */
     @SneakyThrows(SQLException.class)
-    @EventListener(LoadedDealsEvent.class)
-    public void loadedDeals(LoadedDealsEvent event) {
+    @EventListener(LoadedQuikProviderStreamDealsEvent.class)
+    public void loadedDeals(LoadedQuikProviderStreamDealsEvent event) {
         if (event.getData() == null) {
             return;
         }
@@ -265,7 +259,7 @@ public class DbAdapter {
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveDeals, event, settings.getIncomeTopicDeals());
+                this.saveData(callSaveDeals, event);
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -280,8 +274,8 @@ public class DbAdapter {
      * @param event Объект-событие с параметрами.
      */
     @SneakyThrows(SQLException.class)
-    @EventListener(LoadedOrdersEvent.class)
-    public void loadedOrders(LoadedOrdersEvent event) {
+    @EventListener(LoadedQuikProviderStreamOrdersEvent.class)
+    public void loadedOrders(LoadedQuikProviderStreamOrdersEvent event) {
         if (event.getData() == null) {
             return;
         }
@@ -289,7 +283,7 @@ public class DbAdapter {
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveOrders, event, settings.getIncomeTopicOrders());
+                this.saveData(callSaveOrders, event);
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -304,8 +298,8 @@ public class DbAdapter {
      * @param event Объект-событие с параметрами.
      */
     @SneakyThrows(SQLException.class)
-    @EventListener(LoadedAllTradesEvent.class)
-    public void loadedAllTrades(LoadedAllTradesEvent event) {
+    @EventListener(LoadedQuikProviderStreamAllTradesEvent.class)
+    public void loadedAllTrades(LoadedQuikProviderStreamAllTradesEvent event) {
         if (event.getData() == null) {
             return;
         }
@@ -313,7 +307,7 @@ public class DbAdapter {
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveAllTrades, event, settings.getIncomeTopicAllTrades());
+                this.saveData(callSaveAllTrades, event);
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
