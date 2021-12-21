@@ -1,5 +1,7 @@
 package ru.gx.fin.quik.dbadapter;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
@@ -9,25 +11,29 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import ru.gx.core.channels.ChannelDirection;
 import ru.gx.core.data.ActiveConnectionsContainer;
-import ru.gx.core.events.DataEvent;
+import ru.gx.core.data.DataObject;
+import ru.gx.core.data.DataPackage;
 import ru.gx.core.kafka.KafkaConstants;
 import ru.gx.core.kafka.load.KafkaIncomeTopicsLoader;
 import ru.gx.core.kafka.load.KafkaIncomeTopicsOffsetsController;
-import ru.gx.core.kafka.load.SimpleKafkaIncomeTopicsConfiguration;
 import ru.gx.core.kafka.offsets.TopicPartitionOffset;
 import ru.gx.core.kafka.offsets.TopicsOffsetsController;
+import ru.gx.core.messaging.AbstractMessageBodyDataPackage;
+import ru.gx.core.messaging.DataPublish;
 import ru.gx.core.simpleworker.SimpleWorker;
 import ru.gx.core.simpleworker.SimpleWorkerOnIterationExecuteEvent;
 import ru.gx.core.simpleworker.SimpleWorkerOnStartingExecuteEvent;
 import ru.gx.core.simpleworker.SimpleWorkerOnStoppingExecuteEvent;
-import ru.gx.fin.gate.quik.provider.events.*;
-import ru.gx.fin.gate.quik.provider.events.LoadedQuikProviderStreamDealsEvent;
-import ru.gx.fin.gate.quik.provider.events.LoadedQuikProviderStreamSecuritiesEvent;
+import ru.gx.fin.gate.quik.provider.messages.QuikProviderStreamAllTradesPackageDataPublish;
+import ru.gx.fin.gate.quik.provider.messages.QuikProviderStreamDealsPackageDataPublish;
+import ru.gx.fin.gate.quik.provider.messages.QuikProviderStreamOrdersPackageDataPublish;
+import ru.gx.fin.gate.quik.provider.messages.QuikProviderStreamSecuritiesPackageDataPublish;
+import ru.gx.fin.quik.config.KafkaIncomeTopicsConfiguration;
 
 import javax.sql.DataSource;
-import java.security.InvalidParameterException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Objects;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -46,6 +52,10 @@ public class DbAdapter {
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
+    private ObjectMapper objectMapper;
+
+    @Getter(PROTECTED)
+    @Setter(value = PROTECTED, onMethod_ = @Autowired)
     private DataSource dataSource;
 
     @Getter(PROTECTED)
@@ -58,7 +68,7 @@ public class DbAdapter {
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private SimpleKafkaIncomeTopicsConfiguration incomeTopicsConfiguration;
+    private KafkaIncomeTopicsConfiguration incomeTopicsConfiguration;
 
     @Getter(PROTECTED)
     @Setter(value = PROTECTED, onMethod_ = @Autowired)
@@ -87,12 +97,11 @@ public class DbAdapter {
 
     private void saveData(
             @NotNull final String callProc,
-            @NotNull final DataEvent event) {
-        final var data = event.getData();
-        if (!(data instanceof final String jsonData)) {
-            throw new InvalidParameterException("Parameter data isn't instance of String!");
-        }
-        final var topicName = event.getChannelDescriptor().getName();
+            @NotNull final DataPublish<? extends AbstractMessageBodyDataPackage<? extends DataPackage<? extends DataObject>>> message
+    ) throws JsonProcessingException {
+        final var dataPackage = Objects.requireNonNull(message.getBody()).getDataPackage();
+        final var jsonData = objectMapper.writeValueAsString(dataPackage);
+        final var topicName = message.getChannelDescriptor().getApi().getName();
         final var timeStarted = System.currentTimeMillis();
         final var connection = this.connectionsContainer.getCurrent();
         try {
@@ -106,8 +115,8 @@ public class DbAdapter {
                 log.debug("Executed: {} in {} ms", callProc, System.currentTimeMillis() - timeStarted);
             }
 
-            final var partition = event.getMetadataValue(KafkaConstants.METADATA_PARTITION);
-            final var offset = event.getMetadataValue(KafkaConstants.METADATA_OFFSET);
+            final var partition = message.getMetadataValue(KafkaConstants.METADATA_PARTITION);
+            final var offset = message.getMetadataValue(KafkaConstants.METADATA_OFFSET);
             if (partition instanceof Integer && offset instanceof Long) {
                 final var tps = new TopicPartitionOffset(
                         topicName,
@@ -181,7 +190,7 @@ public class DbAdapter {
                     for (var descriptor : result.keySet()) {
                         final var count = result.get(descriptor);
                         if (count > 1) {
-                            log.debug("Loaded from {} {} records", descriptor.getName(), count);
+                            log.debug("Loaded from {} {} records", descriptor.getApi().getName(), count);
                             event.setImmediateRunNextIteration(true);
                             break;
                         }
@@ -223,19 +232,16 @@ public class DbAdapter {
     /**
      * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.provider.out.QuikSecurity}.
      *
-     * @param event Объект-событие с параметрами.
+     * @param message Объект-событие с параметрами.
      */
-    @SneakyThrows(SQLException.class)
-    @EventListener(LoadedQuikProviderStreamSecuritiesEvent.class)
-    public void loadedSecurities(LoadedQuikProviderStreamSecuritiesEvent event) {
-        if (event.getData() == null) {
-            return;
-        }
+    @SneakyThrows({SQLException.class, JsonProcessingException.class})
+    @EventListener(QuikProviderStreamSecuritiesPackageDataPublish.class)
+    public void loadedSecurities(QuikProviderStreamSecuritiesPackageDataPublish message) {
         log.debug("Starting loadedSecurities()");
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveSecurities, event);
+                this.saveData(callSaveSecurities, message);
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -247,19 +253,16 @@ public class DbAdapter {
     /**
      * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.provider.out.QuikDeal}.
      *
-     * @param event Объект-событие с параметрами.
+     * @param message Объект-событие с параметрами.
      */
-    @SneakyThrows(SQLException.class)
-    @EventListener(LoadedQuikProviderStreamDealsEvent.class)
-    public void loadedDeals(LoadedQuikProviderStreamDealsEvent event) {
-        if (event.getData() == null) {
-            return;
-        }
+    @SneakyThrows({SQLException.class, JsonProcessingException.class})
+    @EventListener(QuikProviderStreamDealsPackageDataPublish.class)
+    public void loadedDeals(QuikProviderStreamDealsPackageDataPublish message) {
         log.debug("Starting loadedDeals()");
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveDeals, event);
+                this.saveData(callSaveDeals, message);
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -271,19 +274,16 @@ public class DbAdapter {
     /**
      * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.provider.out.QuikOrder}.
      *
-     * @param event Объект-событие с параметрами.
+     * @param message Объект-событие с параметрами.
      */
-    @SneakyThrows(SQLException.class)
-    @EventListener(LoadedQuikProviderStreamOrdersEvent.class)
-    public void loadedOrders(LoadedQuikProviderStreamOrdersEvent event) {
-        if (event.getData() == null) {
-            return;
-        }
+    @SneakyThrows({SQLException.class, JsonProcessingException.class})
+    @EventListener(QuikProviderStreamOrdersPackageDataPublish.class)
+    public void loadedOrders(QuikProviderStreamOrdersPackageDataPublish message) {
         log.debug("Starting loadedOrders()");
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveOrders, event);
+                this.saveData(callSaveOrders, message);
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }
@@ -295,19 +295,16 @@ public class DbAdapter {
     /**
      * Обработка события о загрузке из Kafka набора объектов {@link ru.gx.fin.gate.quik.provider.out.QuikAllTrade}.
      *
-     * @param event Объект-событие с параметрами.
+     * @param message Объект-событие с параметрами.
      */
-    @SneakyThrows(SQLException.class)
-    @EventListener(LoadedQuikProviderStreamAllTradesEvent.class)
-    public void loadedAllTrades(LoadedQuikProviderStreamAllTradesEvent event) {
-        if (event.getData() == null) {
-            return;
-        }
+    @SneakyThrows({SQLException.class, JsonProcessingException.class})
+    @EventListener(QuikProviderStreamAllTradesPackageDataPublish.class)
+    public void loadedAllTrades(QuikProviderStreamAllTradesPackageDataPublish message) {
         log.debug("Starting loadedAllTrades()");
         try {
             try (var connection = getDataSource().getConnection()) {
                 this.connectionsContainer.putCurrent(connection);
-                this.saveData(callSaveAllTrades, event);
+                this.saveData(callSaveAllTrades, message);
             } finally {
                 this.connectionsContainer.putCurrent(null);
             }

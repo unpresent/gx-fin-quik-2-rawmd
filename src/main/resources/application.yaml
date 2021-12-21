@@ -10,17 +10,14 @@ service:
     min-time-per-iteration-ms: 3000
     timeout-runner-life-ms: 60000
     print-statistics-every-ms: 1000
-  channels:
-    configurator-caller.enabled: true
   kafka:
     server: localhost:9092
     income-topics:
-      simple-configuration.enabled: true
       standard-loader.enabled: true
       standard-offsets-controller.enabled: true
   offsets-controller:
     type: jdbc
-  events:
+  messages:
     standard-queue:
       enabled: true
       name: events-queue
@@ -35,6 +32,13 @@ service:
       min-time-per-iteration-ms: 1000
       timeout-runner-life-ms: 60000
       print-statistics-every-ms: 1000
+  channels-api:
+    quik-provider-streams:
+      securities-v1.enabled: true
+      orders-v1.enabled: true
+      deals-v1.enabled: true
+      all-trades-v1.enabled: true
+
 
 # Логирование
 logging:
