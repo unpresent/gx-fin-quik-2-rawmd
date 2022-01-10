@@ -18,8 +18,8 @@ import ru.gx.core.kafka.load.KafkaIncomeTopicsLoader;
 import ru.gx.core.kafka.load.KafkaIncomeTopicsOffsetsController;
 import ru.gx.core.kafka.offsets.TopicPartitionOffset;
 import ru.gx.core.kafka.offsets.TopicsOffsetsController;
+import ru.gx.core.messaging.AbstractMessage;
 import ru.gx.core.messaging.AbstractMessageBodyDataPackage;
-import ru.gx.core.messaging.DataPublish;
 import ru.gx.core.simpleworker.SimpleWorker;
 import ru.gx.core.simpleworker.SimpleWorkerOnIterationExecuteEvent;
 import ru.gx.core.simpleworker.SimpleWorkerOnStartingExecuteEvent;
@@ -97,7 +97,7 @@ public class DbAdapter {
 
     private void saveData(
             @NotNull final String callProc,
-            @NotNull final DataPublish<? extends AbstractMessageBodyDataPackage<? extends DataPackage<? extends DataObject>>> message
+            @NotNull final AbstractMessage<? extends AbstractMessageBodyDataPackage<? extends DataPackage<? extends DataObject>>> message
     ) throws JsonProcessingException {
         final var dataPackage = Objects.requireNonNull(message.getBody()).getDataPackage();
         final var jsonData = objectMapper.writeValueAsString(dataPackage);
