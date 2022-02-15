@@ -1,7 +1,5 @@
 package ru.gx.fin.quik.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -15,12 +13,6 @@ public abstract class CommonConfig {
     // <editor-fold desc="Common">
     @Value("${service.name}")
     private String serviceName;
-
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper()
-                .registerModule(new JavaTimeModule());
-    }
 
     // </editor-fold>
     // -----------------------------------------------------------------------------------------------------------------

@@ -182,24 +182,15 @@ public class DbAdapter {
             this.simpleWorker.runnerIsLifeSet();
             event.setImmediateRunNextIteration(false);
 
-            try (var connection = getDataSource().getConnection()) {
-                this.connectionsContainer.putCurrent(connection);
-                try {
-                    // Загружаем данные и отправляем в очередь на обработку
-                    final var result = this.incomeTopicsLoader.processAllTopics(this.incomeTopicsConfiguration);
-                    for (var descriptor : result.keySet()) {
-                        final var count = result.get(descriptor);
-                        if (count > 1) {
-                            log.debug("Loaded from {} {} records", descriptor.getApi().getName(), count);
-                            event.setImmediateRunNextIteration(true);
-                            break;
-                        }
-                    }
-                } catch (Exception e) {
-                    internalTreatmentExceptionOnDataRead(event, e);
+            // Загружаем данные и отправляем в очередь на обработку
+            final var result = this.incomeTopicsLoader.processAllTopics(this.incomeTopicsConfiguration);
+            for (var descriptor : result.keySet()) {
+                final var count = result.get(descriptor);
+                if (count > 1) {
+                    log.debug("Loaded from {} {} records", descriptor.getApi().getName(), count);
+                    event.setImmediateRunNextIteration(true);
+                    break;
                 }
-            } finally {
-                this.connectionsContainer.putCurrent(null);
             }
 
         } catch (Exception e) {
