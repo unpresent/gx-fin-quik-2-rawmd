@@ -2,8 +2,8 @@ package ru.gx.fin.quik;
 
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import ru.gx.core.kafka.listener.DoStartKafkaSimpleListenerEvent;
 import ru.gx.core.messaging.DoStartStandardMessagesExecutorEvent;
-import ru.gx.core.simpleworker.DoStartSimpleWorkerEvent;
 
 @SpringBootApplication
 public class Application {
@@ -12,6 +12,6 @@ public class Application {
                 // .web(WebApplicationType.NONE)
                 .run(args);
         DoStartStandardMessagesExecutorEvent.publish(context, context);
-        DoStartSimpleWorkerEvent.publish(context, context);
+        DoStartKafkaSimpleListenerEvent.publish(context, context);
     }
 }

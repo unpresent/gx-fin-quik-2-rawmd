@@ -1,13 +1,13 @@
 package ru.gx.fin.quik.config;
 
 import lombok.Getter;
-import lombok.Setter;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.jetbrains.annotations.NotNull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+import ru.gx.core.channels.IncomeDataProcessType;
 import ru.gx.core.kafka.load.AbstractKafkaIncomeTopicsConfiguration;
 import ru.gx.core.kafka.load.KafkaIncomeTopicLoadingDescriptor;
 import ru.gx.fin.gate.quik.provider.channels.QuikProviderStreamAllTradesPackageDataPublishChannelApiV1;
@@ -21,31 +21,43 @@ import java.util.Properties;
 
 import static lombok.AccessLevel.PROTECTED;
 
+@Configuration
 public class KafkaIncomeTopicsConfiguration extends AbstractKafkaIncomeTopicsConfiguration {
-    @Value("${service.name}")
-    private String serviceName;
-
-    @Value(value = "${service.kafka.server}")
-    private String kafkaServer;
 
     @Getter(PROTECTED)
-    @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private QuikProviderStreamAllTradesPackageDataPublishChannelApiV1 allTradesChannelApi;
+    private final String serviceName;
 
     @Getter(PROTECTED)
-    @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private QuikProviderStreamDealsPackageDataPublishChannelApiV1 dealsChannelApi;
+    private final String kafkaServer;
 
     @Getter(PROTECTED)
-    @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private QuikProviderStreamOrdersPackageDataPublishChannelApiV1 ordersChannelApi;
+    private final QuikProviderStreamAllTradesPackageDataPublishChannelApiV1 allTradesChannelApi;
 
     @Getter(PROTECTED)
-    @Setter(value = PROTECTED, onMethod_ = @Autowired)
-    private QuikProviderStreamSecuritiesPackageDataPublishChannelApiV1 securitiesChannelApi;
+    private final QuikProviderStreamDealsPackageDataPublishChannelApiV1 dealsChannelApi;
 
-    public KafkaIncomeTopicsConfiguration(@NotNull String configurationName) {
-        super(configurationName);
+    @Getter(PROTECTED)
+    private final QuikProviderStreamOrdersPackageDataPublishChannelApiV1 ordersChannelApi;
+
+    @Getter(PROTECTED)
+    private final QuikProviderStreamSecuritiesPackageDataPublishChannelApiV1 securitiesChannelApi;
+
+    public KafkaIncomeTopicsConfiguration(
+            @NotNull final @Value("${service.name}") String serviceName,
+            @NotNull final @Value(value = "${service.kafka.server}") String kafkaServer,
+            @NotNull final QuikProviderStreamAllTradesPackageDataPublishChannelApiV1 allTradesChannelApi,
+            @NotNull final QuikProviderStreamDealsPackageDataPublishChannelApiV1 dealsChannelApi,
+            @NotNull final QuikProviderStreamOrdersPackageDataPublishChannelApiV1 ordersChannelApi,
+            @NotNull final QuikProviderStreamSecuritiesPackageDataPublishChannelApiV1 securitiesChannelApi
+    ) {
+        super("kafka-income-config");
+        this.serviceName = serviceName;
+        this.kafkaServer = kafkaServer;
+
+        this.allTradesChannelApi = allTradesChannelApi;
+        this.dealsChannelApi = dealsChannelApi;
+        this.ordersChannelApi = ordersChannelApi;
+        this.securitiesChannelApi = securitiesChannelApi;
     }
 
     @SuppressWarnings("unchecked")
@@ -55,6 +67,7 @@ public class KafkaIncomeTopicsConfiguration extends AbstractKafkaIncomeTopicsCon
                 .setDurationOnPoll(Duration.ofMillis(25))
                 .setPartitions(0)
                 .setConsumerProperties(consumerProperties());
+                // .setProcessType(IncomeDataProcessType.Immediate);
 
         this
                 .newDescriptor(this.ordersChannelApi, KafkaIncomeTopicLoadingDescriptor.class)

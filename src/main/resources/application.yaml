@@ -1,22 +1,24 @@
 service:
   name: quik-2-rawmd
-  active-connections-container.enabled: true
   standard-settings-controller.enabled: true
-  simple-worker:
-    enabled: true
-    name: simple-worker
-    wait-on-stop-ms: 5000
-    wait-on-restart-ms: 20000
-    min-time-per-iteration-ms: 3000
-    timeout-runner-life-ms: 60000
-    print-statistics-every-ms: 1000
+  db-saving:
+    jdbc-saver.enabled: true
+    jdbc-json-operator.enabled: true
   kafka:
-    server: localhost:9092
+    server: ${KAFKA_SERVER}
     income-topics:
       standard-loader.enabled: true
       standard-offsets-controller.enabled: true
-  offsets-controller:
-    type: jdbc
+    offsets-storage:
+      type: sql
+    simple-listener:
+      enabled: true
+      name: simple-listener
+      wait-on-stop-ms: 5000
+      wait-on-restart-ms: 20000
+      min-time-per-iteration-ms: 3000
+      timeout-runner-life-ms: 60000
+      print-statistics-every-ms: 1000
   messages:
     standard-queue:
       enabled: true
@@ -58,11 +60,14 @@ server:
 #data
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/gxfin_rawmd
-    username: quik
-    password: 12033021
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USER}
+    password: ${DATASOURCE_PASS}
     hikari:
       maximum-pool-size: 2
+  redis:
+    host: ${REDIS_SERVER}
+    port: ${REDIS_PORT}
 
 management:
   endpoints:
